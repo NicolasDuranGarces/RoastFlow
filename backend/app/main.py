@@ -6,11 +6,13 @@ from .core.config import settings
 from .core.initial_data import create_initial_superuser
 from .db import init_db
 
-app = FastAPI(title=settings.project_name, root_path="/api")
+app = FastAPI(title=settings.project_name)
+
+cors_origins = settings.backend_cors_origins or ["*"]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
