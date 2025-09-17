@@ -1,7 +1,4 @@
 from functools import lru_cache
-from typing import Any
-
-from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 import json
@@ -17,14 +14,15 @@ class Settings(BaseSettings):
     first_superuser_email: str | None = None
     first_superuser_password: str | None = None
     root_path: str | None = ""
-    backend_cors_origins: list[str] = [
+    backend_cors_origins: list[str] | str | None = [
         "http://localhost:5173",
         "http://127.0.0.1:5173",
     ]
 
-    @field_validator("backend_cors_origins", mode="before")
-    @classmethod
-    def assemble_cors_origins(cls, value: Any) -> list[str]:
+    @staticmethod
+    def _normalize_cors(value: list[str] | str | None) -> list[str]:
+        if value is None:
+            return []
         if isinstance(value, str):
             stripped = value.strip()
             if not stripped:
@@ -32,14 +30,17 @@ class Settings(BaseSettings):
             if stripped.startswith("["):
                 try:
                     parsed = json.loads(stripped)
+                except json.JSONDecodeError:
+                    parsed = None
+                else:
                     if isinstance(parsed, list):
                         return [str(item).strip() for item in parsed if str(item).strip()]
-                except json.JSONDecodeError:
-                    pass
             return [origin.strip() for origin in stripped.split(",") if origin.strip()]
-        if isinstance(value, (list, tuple, set)):
-            return [str(origin).strip() for origin in value if str(origin).strip()]
-        return []
+        return [str(origin).strip() for origin in value if str(origin).strip()]
+
+    @property
+    def cors_origins(self) -> list[str]:
+        return self._normalize_cors(self.backend_cors_origins)
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
