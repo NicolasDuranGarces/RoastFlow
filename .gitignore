@@ -35,6 +35,8 @@ frontend/dist/
 .stylelintcache
 .vite/
 frontend/.vite/
+frontend/vite.config.js
+frontend/vite.config.d.ts
 
 # ---- Environment files ----
 .env
