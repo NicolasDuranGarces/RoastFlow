@@ -17,10 +17,12 @@ import {
 } from "@mui/material";
 import DeleteRoundedIcon from "@mui/icons-material/DeleteRounded";
 import EditRoundedIcon from "@mui/icons-material/EditRounded";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 
 import { createLot, deleteLot, fetchFarms, fetchLots, fetchVarieties, updateLot } from "../services/api";
 import type { CoffeeLot, Farm, Variety } from "../types";
+import ConfirmDialog from "../components/ConfirmDialog";
+import FilterPanel from "../components/FilterPanel";
 
 const processOptions = ["Lavado", "Semilavado", "Honey", "Natural"];
 
@@ -42,6 +44,19 @@ const LotsPage = () => {
   const [form, setForm] = useState(initialForm);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
+  const [filters, setFilters] = useState({
+    farmId: "",
+    varietyId: "",
+    process: "",
+    dateFrom: "",
+    dateTo: "",
+    minWeight: "",
+    maxWeight: "",
+    minPrice: "",
+    maxPrice: ""
+  });
+  const [deleteTarget, setDeleteTarget] = useState<CoffeeLot | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const loadData = useMemo(
     () =>
@@ -66,9 +81,64 @@ const LotsPage = () => {
     void loadData();
   }, [loadData]);
 
+  const filteredLots = useMemo(() => {
+    return lots.filter((lot) => {
+      if (filters.farmId && lot.farm_id !== Number(filters.farmId)) {
+        return false;
+      }
+      if (filters.varietyId && lot.variety_id !== Number(filters.varietyId)) {
+        return false;
+      }
+      if (filters.process && lot.process !== filters.process) {
+        return false;
+      }
+      if (filters.dateFrom && lot.purchase_date < filters.dateFrom) {
+        return false;
+      }
+      if (filters.dateTo && lot.purchase_date > filters.dateTo) {
+        return false;
+      }
+      if (filters.minWeight) {
+        const minWeight = Number(filters.minWeight);
+        if (!Number.isNaN(minWeight) && lot.green_weight_kg < minWeight) {
+          return false;
+        }
+      }
+      if (filters.maxWeight) {
+        const maxWeight = Number(filters.maxWeight);
+        if (!Number.isNaN(maxWeight) && lot.green_weight_kg > maxWeight) {
+          return false;
+        }
+      }
+      if (filters.minPrice) {
+        const minPrice = Number(filters.minPrice);
+        if (!Number.isNaN(minPrice) && lot.price_per_kg < minPrice) {
+          return false;
+        }
+      }
+      if (filters.maxPrice) {
+        const maxPrice = Number(filters.maxPrice);
+        if (!Number.isNaN(maxPrice) && lot.price_per_kg > maxPrice) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }, [filters, lots]);
+
+  const isFiltering = useMemo(
+    () => Object.values(filters).some((value) => value.toString().trim() !== ""),
+    [filters]
+  );
+
   const resetForm = () => {
     setForm(initialForm);
     setEditingId(null);
+  };
+
+  const handleFilterChange = (field: keyof typeof filters) => (event: ChangeEvent<HTMLInputElement>) => {
+    const { value } = event.target;
+    setFilters((prev) => ({ ...prev, [field]: value.toString() }));
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -113,15 +183,30 @@ const LotsPage = () => {
     });
   };
 
-  const handleDelete = async (lot: CoffeeLot) => {
-    if (!window.confirm(`Eliminar lote del ${lot.purchase_date}?`)) {
+  const handleDeleteRequest = (lot: CoffeeLot) => {
+    setDeleteTarget(lot);
+  };
+
+  const handleDeleteCancel = () => {
+    if (deleting) {
       return;
     }
+    setDeleteTarget(null);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteTarget) {
+      return;
+    }
+    setDeleting(true);
     try {
-      await deleteLot(lot.id);
+      await deleteLot(deleteTarget.id);
       await loadData();
     } catch (error) {
       console.error("Failed to delete lot", error);
+    } finally {
+      setDeleting(false);
+      setDeleteTarget(null);
     }
   };
 
@@ -140,7 +225,7 @@ const LotsPage = () => {
                 required
               >
                 {farms.map((farm) => (
-                  <MenuItem key={farm.id} value={farm.id}>
+                  <MenuItem key={farm.id} value={String(farm.id)}>
                     {farm.name}
                   </MenuItem>
                 ))}
@@ -153,7 +238,7 @@ const LotsPage = () => {
                 required
               >
                 {varieties.map((variety) => (
-                  <MenuItem key={variety.id} value={variety.id}>
+                  <MenuItem key={variety.id} value={String(variety.id)}>
                     {variety.name}
                   </MenuItem>
                 ))}
@@ -187,6 +272,7 @@ const LotsPage = () => {
                 type="number"
                 value={form.green_weight_kg}
                 onChange={(e) => setForm((prev) => ({ ...prev, green_weight_kg: e.target.value }))}
+                inputProps={{ min: 0, step: "0.01" }}
                 required
               />
               <TextField
@@ -194,6 +280,7 @@ const LotsPage = () => {
                 type="number"
                 value={form.price_per_kg}
                 onChange={(e) => setForm((prev) => ({ ...prev, price_per_kg: e.target.value }))}
+                inputProps={{ min: 0, step: "0.01" }}
                 required
               />
               <TextField
@@ -201,6 +288,7 @@ const LotsPage = () => {
                 type="number"
                 value={form.moisture_level}
                 onChange={(e) => setForm((prev) => ({ ...prev, moisture_level: e.target.value }))}
+                inputProps={{ min: 0, max: 100, step: "0.01" }}
               />
               <TextField
                 label="Notas"
@@ -225,8 +313,105 @@ const LotsPage = () => {
       </Grid>
       <Grid item xs={12} md={8}>
         <Card sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
-          <CardHeader title="Lotes registrados" />
+          <CardHeader
+            title="Lotes registrados"
+            subheader={`${filteredLots.length} de ${lots.length} registros`}
+          />
           <CardContent sx={{ flexGrow: 1, overflowX: "auto" }}>
+            <FilterPanel
+              isDirty={isFiltering}
+              onClear={() =>
+                setFilters({
+                  farmId: "",
+                  varietyId: "",
+                  process: "",
+                  dateFrom: "",
+                  dateTo: "",
+                  minWeight: "",
+                  maxWeight: "",
+                  minPrice: "",
+                  maxPrice: ""
+                })
+              }
+            >
+              <TextField
+                select
+                label="Finca"
+                value={filters.farmId}
+                onChange={handleFilterChange("farmId")}
+              >
+                <MenuItem value="">Todas</MenuItem>
+                {farms.map((farm) => (
+                  <MenuItem key={farm.id} value={String(farm.id)}>
+                    {farm.name}
+                  </MenuItem>
+                ))}
+              </TextField>
+              <TextField
+                select
+                label="Variedad"
+                value={filters.varietyId}
+                onChange={handleFilterChange("varietyId")}
+              >
+                <MenuItem value="">Todas</MenuItem>
+                {varieties.map((variety) => (
+                  <MenuItem key={variety.id} value={String(variety.id)}>
+                    {variety.name}
+                  </MenuItem>
+                ))}
+              </TextField>
+              <TextField
+                select
+                label="Proceso"
+                value={filters.process}
+                onChange={handleFilterChange("process")}
+              >
+                <MenuItem value="">Todos</MenuItem>
+                {processOptions.map((option) => (
+                  <MenuItem key={option} value={option}>
+                    {option}
+                  </MenuItem>
+                ))}
+              </TextField>
+              <TextField
+                label="Desde"
+                type="date"
+                InputLabelProps={{ shrink: true }}
+                value={filters.dateFrom}
+                onChange={handleFilterChange("dateFrom")}
+              />
+              <TextField
+                label="Hasta"
+                type="date"
+                InputLabelProps={{ shrink: true }}
+                value={filters.dateTo}
+                onChange={handleFilterChange("dateTo")}
+              />
+              <TextField
+                label="Kg minimo"
+                type="number"
+                value={filters.minWeight}
+                onChange={handleFilterChange("minWeight")}
+              />
+              <TextField
+                label="Kg maximo"
+                type="number"
+                value={filters.maxWeight}
+                onChange={handleFilterChange("maxWeight")}
+              />
+              <TextField
+                label="Precio minimo"
+                type="number"
+                value={filters.minPrice}
+                onChange={handleFilterChange("minPrice")}
+              />
+              <TextField
+                label="Precio maximo"
+                type="number"
+                value={filters.maxPrice}
+                onChange={handleFilterChange("maxPrice")}
+              />
+            </FilterPanel>
             <Table size="small" stickyHeader>
               <TableHead>
                 <TableRow>
@@ -238,35 +423,58 @@ const LotsPage = () => {
                   <TableCell align="right">Precio/kg</TableCell>
                   <TableCell align="right">Acciones</TableCell>
                 </TableRow>
-              </TableHead>
-              <TableBody>
-                {lots.map((lot) => (
-                  <TableRow key={lot.id}>
-                    <TableCell>{farms.find((f) => f.id === lot.farm_id)?.name ?? ""}</TableCell>
-                    <TableCell>{varieties.find((v) => v.id === lot.variety_id)?.name ?? ""}</TableCell>
-                    <TableCell>{lot.process}</TableCell>
-                    <TableCell>{lot.purchase_date}</TableCell>
-                    <TableCell align="right">{lot.green_weight_kg.toFixed(2)}</TableCell>
-                    <TableCell align="right">${lot.price_per_kg.toFixed(2)}</TableCell>
-                    <TableCell align="right">
-                      <Tooltip title="Editar">
-                        <IconButton color="primary" onClick={() => handleEdit(lot)}>
-                          <EditRoundedIcon />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Eliminar">
-                        <IconButton color="error" onClick={() => handleDelete(lot)}>
-                          <DeleteRoundedIcon />
-                        </IconButton>
-                      </Tooltip>
+                </TableHead>
+                <TableBody>
+                {filteredLots.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7}>
+                      {isFiltering
+                        ? "No hay lotes que coincidan con los filtros."
+                        : "No hay lotes registrados."}
                     </TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                ) : (
+                  filteredLots.map((lot) => (
+                    <TableRow key={lot.id}>
+                      <TableCell>{farms.find((f) => f.id === lot.farm_id)?.name ?? ""}</TableCell>
+                      <TableCell>{varieties.find((v) => v.id === lot.variety_id)?.name ?? ""}</TableCell>
+                      <TableCell>{lot.process}</TableCell>
+                      <TableCell>{lot.purchase_date}</TableCell>
+                      <TableCell align="right">{lot.green_weight_kg.toFixed(2)}</TableCell>
+                      <TableCell align="right">${lot.price_per_kg.toFixed(2)}</TableCell>
+                      <TableCell align="right">
+                        <Tooltip title="Editar">
+                          <IconButton color="primary" onClick={() => handleEdit(lot)}>
+                            <EditRoundedIcon />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Eliminar">
+                          <IconButton color="error" onClick={() => handleDeleteRequest(lot)}>
+                            <DeleteRoundedIcon />
+                          </IconButton>
+                        </Tooltip>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+                </TableBody>
+              </Table>
           </CardContent>
         </Card>
       </Grid>
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        title="Eliminar lote"
+        description={
+          deleteTarget
+            ? `¿Deseas eliminar el lote registrado el ${deleteTarget.purchase_date}? Esta acción no se puede deshacer.`
+            : undefined
+        }
+        onCancel={handleDeleteCancel}
+        onConfirm={handleDeleteConfirm}
+        confirmLabel="Eliminar"
+        loading={deleting}
+      />
     </Grid>
   );
 };

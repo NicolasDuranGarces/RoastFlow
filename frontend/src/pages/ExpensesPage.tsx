@@ -16,10 +16,12 @@ import {
 } from "@mui/material";
 import DeleteRoundedIcon from "@mui/icons-material/DeleteRounded";
 import EditRoundedIcon from "@mui/icons-material/EditRounded";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 
 import { createExpense, deleteExpense, fetchExpenses, updateExpense } from "../services/api";
 import type { Expense } from "../types";
+import ConfirmDialog from "../components/ConfirmDialog";
+import FilterPanel from "../components/FilterPanel";
 
 const buildEmptyForm = () => ({
   expense_date: new Date().toISOString().slice(0, 10),
@@ -33,6 +35,15 @@ const ExpensesPage = () => {
   const [form, setForm] = useState(buildEmptyForm);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
+  const [filters, setFilters] = useState({
+    category: "",
+    dateFrom: "",
+    dateTo: "",
+    minAmount: "",
+    maxAmount: ""
+  });
+  const [deleteTarget, setDeleteTarget] = useState<Expense | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const loadExpenses = useMemo(
     () =>
@@ -51,9 +62,46 @@ const ExpensesPage = () => {
     void loadExpenses();
   }, [loadExpenses]);
 
+  const filteredExpenses = useMemo(() => {
+    return expenses.filter((expense) => {
+      if (filters.category && !expense.category.toLowerCase().includes(filters.category.toLowerCase())) {
+        return false;
+      }
+      if (filters.dateFrom && expense.expense_date < filters.dateFrom) {
+        return false;
+      }
+      if (filters.dateTo && expense.expense_date > filters.dateTo) {
+        return false;
+      }
+      if (filters.minAmount) {
+        const min = Number(filters.minAmount);
+        if (!Number.isNaN(min) && expense.amount < min) {
+          return false;
+        }
+      }
+      if (filters.maxAmount) {
+        const max = Number(filters.maxAmount);
+        if (!Number.isNaN(max) && expense.amount > max) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }, [expenses, filters]);
+
+  const isFiltering = useMemo(
+    () => Object.values(filters).some((value) => value.toString().trim() !== ""),
+    [filters]
+  );
+
   const resetForm = () => {
     setForm(buildEmptyForm());
     setEditingId(null);
+  };
+
+  const handleFilterChange = (field: keyof typeof filters) => (event: ChangeEvent<HTMLInputElement>) => {
+    const { value } = event.target;
+    setFilters((prev) => ({ ...prev, [field]: value.toString() }));
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -90,15 +138,30 @@ const ExpensesPage = () => {
     });
   };
 
-  const handleDelete = async (expense: Expense) => {
-    if (!window.confirm(`Eliminar gasto de "${expense.category}"?`)) {
+  const handleDeleteRequest = (expense: Expense) => {
+    setDeleteTarget(expense);
+  };
+
+  const handleDeleteCancel = () => {
+    if (deleting) {
       return;
     }
+    setDeleteTarget(null);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteTarget) {
+      return;
+    }
+    setDeleting(true);
     try {
-      await deleteExpense(expense.id);
+      await deleteExpense(deleteTarget.id);
       await loadExpenses();
     } catch (error) {
       console.error("Failed to delete expense", error);
+    } finally {
+      setDeleting(false);
+      setDeleteTarget(null);
     }
   };
 
@@ -153,8 +216,48 @@ const ExpensesPage = () => {
       </Grid>
       <Grid item xs={12} md={8}>
         <Card sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
-          <CardHeader title="Historial de gastos" subheader={`${expenses.length} registros`} />
+          <CardHeader
+            title="Historial de gastos"
+            subheader={`${filteredExpenses.length} de ${expenses.length} registros`}
+          />
           <CardContent sx={{ flexGrow: 1, overflowX: "auto" }}>
+            <FilterPanel
+              isDirty={isFiltering}
+              onClear={() => setFilters({ category: "", dateFrom: "", dateTo: "", minAmount: "", maxAmount: "" })}
+            >
+              <TextField
+                label="Categoria"
+                value={filters.category}
+                onChange={handleFilterChange("category")}
+                placeholder="Buscar categoria"
+              />
+              <TextField
+                label="Desde"
+                type="date"
+                InputLabelProps={{ shrink: true }}
+                value={filters.dateFrom}
+                onChange={handleFilterChange("dateFrom")}
+              />
+              <TextField
+                label="Hasta"
+                type="date"
+                InputLabelProps={{ shrink: true }}
+                value={filters.dateTo}
+                onChange={handleFilterChange("dateTo")}
+              />
+              <TextField
+                label="Monto minimo"
+                type="number"
+                value={filters.minAmount}
+                onChange={handleFilterChange("minAmount")}
+              />
+              <TextField
+                label="Monto maximo"
+                type="number"
+                value={filters.maxAmount}
+                onChange={handleFilterChange("maxAmount")}
+              />
+            </FilterPanel>
             <Table size="small" stickyHeader>
               <TableHead>
                 <TableRow>
@@ -166,31 +269,54 @@ const ExpensesPage = () => {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {expenses.map((expense) => (
-                  <TableRow key={expense.id}>
-                    <TableCell>{expense.expense_date}</TableCell>
-                    <TableCell>{expense.category}</TableCell>
-                    <TableCell align="right">${expense.amount.toFixed(2)}</TableCell>
-                    <TableCell>{expense.notes}</TableCell>
-                    <TableCell align="right">
-                      <Tooltip title="Editar">
-                        <IconButton color="primary" onClick={() => handleEdit(expense)}>
-                          <EditRoundedIcon />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Eliminar">
-                        <IconButton color="error" onClick={() => handleDelete(expense)}>
-                          <DeleteRoundedIcon />
-                        </IconButton>
-                      </Tooltip>
+                {filteredExpenses.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5}>
+                      {isFiltering
+                        ? "No hay gastos que coincidan con los filtros."
+                        : "No hay gastos registrados."}
                     </TableCell>
                   </TableRow>
-                ))}
+                ) : (
+                  filteredExpenses.map((expense) => (
+                    <TableRow key={expense.id}>
+                      <TableCell>{expense.expense_date}</TableCell>
+                      <TableCell>{expense.category}</TableCell>
+                      <TableCell align="right">${expense.amount.toFixed(2)}</TableCell>
+                      <TableCell>{expense.notes}</TableCell>
+                      <TableCell align="right">
+                        <Tooltip title="Editar">
+                          <IconButton color="primary" onClick={() => handleEdit(expense)}>
+                            <EditRoundedIcon />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Eliminar">
+                          <IconButton color="error" onClick={() => handleDeleteRequest(expense)}>
+                            <DeleteRoundedIcon />
+                          </IconButton>
+                        </Tooltip>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           </CardContent>
         </Card>
       </Grid>
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        title="Eliminar gasto"
+        description={
+          deleteTarget
+            ? `¿Deseas eliminar el gasto "${deleteTarget.category}" del ${deleteTarget.expense_date}?`
+            : undefined
+        }
+        onCancel={handleDeleteCancel}
+        onConfirm={handleDeleteConfirm}
+        confirmLabel="Eliminar"
+        loading={deleting}
+      />
     </Grid>
   );
 };

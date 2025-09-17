@@ -17,10 +17,12 @@ import {
 } from "@mui/material";
 import DeleteRoundedIcon from "@mui/icons-material/DeleteRounded";
 import EditRoundedIcon from "@mui/icons-material/EditRounded";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 
 import { createFarm, deleteFarm, fetchFarms, updateFarm } from "../services/api";
 import type { Farm } from "../types";
+import ConfirmDialog from "../components/ConfirmDialog";
+import FilterPanel from "../components/FilterPanel";
 
 const emptyForm = { name: "", location: "", notes: "" };
 
@@ -29,6 +31,9 @@ const FarmsPage = () => {
   const [form, setForm] = useState(emptyForm);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
+  const [filters, setFilters] = useState({ name: "", location: "", notes: "" });
+  const [deleteTarget, setDeleteTarget] = useState<Farm | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const loadFarms = useMemo(
     () =>
@@ -47,9 +52,31 @@ const FarmsPage = () => {
     void loadFarms();
   }, [loadFarms]);
 
+  const filteredFarms = useMemo(() => {
+    const nameFilter = filters.name.toLowerCase();
+    const locationFilter = filters.location.toLowerCase();
+    const notesFilter = filters.notes.toLowerCase();
+    return farms.filter((farm) => {
+      const matchesName = farm.name.toLowerCase().includes(nameFilter);
+      const matchesLocation = (farm.location ?? "").toLowerCase().includes(locationFilter);
+      const matchesNotes = (farm.notes ?? "").toLowerCase().includes(notesFilter);
+      return matchesName && matchesLocation && matchesNotes;
+    });
+  }, [farms, filters]);
+
+  const isFiltering = useMemo(
+    () => Object.values(filters).some((value) => value.toString().trim() !== ""),
+    [filters]
+  );
+
   const resetForm = () => {
     setForm(emptyForm);
     setEditingId(null);
+  };
+
+  const handleFilterChange = (field: keyof typeof filters) => (event: ChangeEvent<HTMLInputElement>) => {
+    const { value } = event.target;
+    setFilters((prev) => ({ ...prev, [field]: value.toString() }));
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -75,15 +102,30 @@ const FarmsPage = () => {
     setForm({ name: farm.name, location: farm.location ?? "", notes: farm.notes ?? "" });
   };
 
-  const handleDelete = async (farm: Farm) => {
-    if (!window.confirm(`Eliminar finca "${farm.name}"?`)) {
+  const handleDeleteRequest = (farm: Farm) => {
+    setDeleteTarget(farm);
+  };
+
+  const handleDeleteCancel = () => {
+    if (deleting) {
       return;
     }
+    setDeleteTarget(null);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteTarget) {
+      return;
+    }
+    setDeleting(true);
     try {
-      await deleteFarm(farm.id);
+      await deleteFarm(deleteTarget.id);
       await loadFarms();
     } catch (error) {
       console.error("Failed to delete farm", error);
+    } finally {
+      setDeleting(false);
+      setDeleteTarget(null);
     }
   };
 
@@ -128,11 +170,37 @@ const FarmsPage = () => {
       </Grid>
       <Grid item xs={12} md={7}>
         <Card sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
-          <CardHeader title="Fincas registradas" subheader={`${farms.length} registros`} />
+          <CardHeader
+            title="Fincas registradas"
+            subheader={`${filteredFarms.length} de ${farms.length} registros`}
+          />
           <CardContent sx={{ flexGrow: 1, overflowX: "auto" }}>
-            {farms.length === 0 ? (
+            <FilterPanel
+              isDirty={isFiltering}
+              onClear={() => setFilters({ name: "", location: "", notes: "" })}
+            >
+              <TextField
+                label="Nombre"
+                value={filters.name}
+                onChange={handleFilterChange("name")}
+                placeholder="Filtrar por nombre"
+              />
+              <TextField
+                label="Ubicacion"
+                value={filters.location}
+                onChange={handleFilterChange("location")}
+                placeholder="Filtrar por ubicacion"
+              />
+              <TextField
+                label="Notas"
+                value={filters.notes}
+                onChange={handleFilterChange("notes")}
+                placeholder="Filtrar por notas"
+              />
+            </FilterPanel>
+            {filteredFarms.length === 0 ? (
               <Typography variant="body2" color="text.secondary">
-                No hay fincas registradas.
+                {isFiltering ? "No hay fincas que coincidan con los filtros." : "No hay fincas registradas."}
               </Typography>
             ) : (
               <Table size="small" stickyHeader>
@@ -145,7 +213,7 @@ const FarmsPage = () => {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {farms.map((farm) => (
+                  {filteredFarms.map((farm) => (
                     <TableRow key={farm.id} hover>
                       <TableCell>{farm.name}</TableCell>
                       <TableCell>{farm.location}</TableCell>
@@ -157,7 +225,7 @@ const FarmsPage = () => {
                           </IconButton>
                         </Tooltip>
                         <Tooltip title="Eliminar">
-                          <IconButton color="error" onClick={() => handleDelete(farm)}>
+                          <IconButton color="error" onClick={() => handleDeleteRequest(farm)}>
                             <DeleteRoundedIcon />
                           </IconButton>
                         </Tooltip>
@@ -170,6 +238,17 @@ const FarmsPage = () => {
           </CardContent>
         </Card>
       </Grid>
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        title="Eliminar finca"
+        description={
+          deleteTarget ? `¿Deseas eliminar la finca "${deleteTarget.name}"? Esta acción no se puede deshacer.` : undefined
+        }
+        onCancel={handleDeleteCancel}
+        onConfirm={handleDeleteConfirm}
+        confirmLabel="Eliminar"
+        loading={deleting}
+      />
     </Grid>
   );
 };

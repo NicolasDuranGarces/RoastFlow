@@ -8,6 +8,7 @@ import {
   FormControlLabel,
   Grid,
   IconButton,
+  MenuItem,
   Table,
   TableBody,
   TableCell,
@@ -19,11 +20,13 @@ import {
 } from "@mui/material";
 import DeleteRoundedIcon from "@mui/icons-material/DeleteRounded";
 import EditRoundedIcon from "@mui/icons-material/EditRounded";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 
 import { createUser, deleteUser, fetchUsers, updateUser } from "../services/api";
 import type { User } from "../types";
 import { useAuth } from "../hooks/useAuth";
+import ConfirmDialog from "../components/ConfirmDialog";
+import FilterPanel from "../components/FilterPanel";
 
 const emptyForm = {
   email: "",
@@ -39,6 +42,9 @@ const UsersPage = () => {
   const [form, setForm] = useState(emptyForm);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
+  const [filters, setFilters] = useState({ search: "", active: "all", role: "all" });
+  const [deleteTarget, setDeleteTarget] = useState<User | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const loadUsers = useMemo(
     () =>
@@ -58,6 +64,37 @@ const UsersPage = () => {
       void loadUsers();
     }
   }, [loadUsers, user]);
+
+  const filteredUsers = useMemo(() => {
+    const searchValue = filters.search.toLowerCase();
+    return users.filter((candidate) => {
+      if (
+        searchValue &&
+        !candidate.email.toLowerCase().includes(searchValue) &&
+        !(candidate.full_name ?? "").toLowerCase().includes(searchValue)
+      ) {
+        return false;
+      }
+      if (filters.active === "active" && !candidate.is_active) {
+        return false;
+      }
+      if (filters.active === "inactive" && candidate.is_active) {
+        return false;
+      }
+      if (filters.role === "admin" && !candidate.is_superuser) {
+        return false;
+      }
+      if (filters.role === "standard" && candidate.is_superuser) {
+        return false;
+      }
+      return true;
+    });
+  }, [filters, users]);
+
+  const isFiltering = useMemo(
+    () => filters.search.trim() !== "" || filters.active !== "all" || filters.role !== "all",
+    [filters]
+  );
 
   if (!user?.is_superuser) {
     return (
@@ -112,15 +149,35 @@ const UsersPage = () => {
     });
   };
 
-  const handleDelete = async (user: User) => {
-    if (!window.confirm(`Eliminar usuario ${user.email}?`)) {
+  const handleFilterChange = (field: keyof typeof filters) => (event: ChangeEvent<HTMLInputElement>) => {
+    const { value } = event.target;
+    setFilters((prev) => ({ ...prev, [field]: value.toString() }));
+  };
+
+  const handleDeleteRequest = (target: User) => {
+    setDeleteTarget(target);
+  };
+
+  const handleDeleteCancel = () => {
+    if (deleting) {
       return;
     }
+    setDeleteTarget(null);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteTarget) {
+      return;
+    }
+    setDeleting(true);
     try {
-      await deleteUser(user.id);
+      await deleteUser(deleteTarget.id);
       await loadUsers();
     } catch (error) {
       console.error("Failed to delete user", error);
+    } finally {
+      setDeleting(false);
+      setDeleteTarget(null);
     }
   };
 
@@ -185,11 +242,47 @@ const UsersPage = () => {
       </Grid>
       <Grid item xs={12} md={7}>
         <Card sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
-          <CardHeader title="Usuarios" subheader={`${users.length} registrados`} />
+          <CardHeader
+            title="Usuarios"
+            subheader={`${filteredUsers.length} de ${users.length} registrados`}
+          />
           <CardContent sx={{ flexGrow: 1, overflowX: "auto" }}>
-            {users.length === 0 ? (
+            <FilterPanel
+              isDirty={isFiltering}
+              onClear={() => setFilters({ search: "", active: "all", role: "all" })}
+            >
+              <TextField
+                label="Buscar"
+                value={filters.search}
+                onChange={handleFilterChange("search")}
+                placeholder="Email o nombre"
+              />
+              <TextField
+                select
+                label="Estado"
+                value={filters.active}
+                onChange={handleFilterChange("active")}
+              >
+                <MenuItem value="all">Todos</MenuItem>
+                <MenuItem value="active">Activos</MenuItem>
+                <MenuItem value="inactive">Inactivos</MenuItem>
+              </TextField>
+              <TextField
+                select
+                label="Rol"
+                value={filters.role}
+                onChange={handleFilterChange("role")}
+              >
+                <MenuItem value="all">Todos</MenuItem>
+                <MenuItem value="admin">Administradores</MenuItem>
+                <MenuItem value="standard">Operativos</MenuItem>
+              </TextField>
+            </FilterPanel>
+            {filteredUsers.length === 0 ? (
               <Typography variant="body2" color="text.secondary">
-                No hay usuarios registrados.
+                {isFiltering
+                  ? "No hay usuarios que coincidan con los filtros."
+                  : "No hay usuarios registrados."}
               </Typography>
             ) : (
               <Table size="small" stickyHeader>
@@ -203,7 +296,7 @@ const UsersPage = () => {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {users.map((user) => (
+                  {filteredUsers.map((user) => (
                     <TableRow key={user.id}>
                       <TableCell>{user.email}</TableCell>
                       <TableCell>{user.full_name}</TableCell>
@@ -216,7 +309,7 @@ const UsersPage = () => {
                           </IconButton>
                         </Tooltip>
                         <Tooltip title="Eliminar">
-                          <IconButton color="error" onClick={() => handleDelete(user)}>
+                          <IconButton color="error" onClick={() => handleDeleteRequest(user)}>
                             <DeleteRoundedIcon />
                           </IconButton>
                         </Tooltip>
@@ -229,6 +322,19 @@ const UsersPage = () => {
           </CardContent>
         </Card>
       </Grid>
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        title="Eliminar usuario"
+        description={
+          deleteTarget
+            ? `¿Deseas eliminar al usuario ${deleteTarget.email}? Esta acción no se puede deshacer.`
+            : undefined
+        }
+        onCancel={handleDeleteCancel}
+        onConfirm={handleDeleteConfirm}
+        confirmLabel="Eliminar"
+        loading={deleting}
+      />
     </Grid>
   );
 };
