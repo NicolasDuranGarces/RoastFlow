@@ -4,9 +4,10 @@ import {
   Card,
   CardContent,
   CardHeader,
-  Grid,
+  Collapse,
   IconButton,
   MenuItem,
+  Stack,
   Table,
   TableBody,
   TableCell,
@@ -53,6 +54,7 @@ const RoastsPage = () => {
   });
   const [deleteTarget, setDeleteTarget] = useState<RoastBatch | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [formOpen, setFormOpen] = useState(true);
 
   const loadData = useMemo(
     () =>
@@ -243,10 +245,17 @@ const RoastsPage = () => {
   };
 
   return (
-    <Grid container spacing={3}>
-      <Grid item xs={12} md={4}>
-        <Card sx={{ height: "100%" }}>
-          <CardHeader title={editingId ? "Editar tostion" : "Registrar tostion"} />
+    <Stack spacing={4}>
+      <Card>
+        <CardHeader
+          title={editingId ? "Editar tostion" : "Registrar tostion"}
+          action={
+            <Button size="small" onClick={() => setFormOpen((prev) => !prev)}>
+              {formOpen ? "Ocultar" : "Mostrar"}
+            </Button>
+          }
+        />
+        <Collapse in={formOpen} timeout="auto" unmountOnExit>
           <CardContent>
             <Box component="form" display="flex" flexDirection="column" gap={2} onSubmit={handleSubmit}>
               <TextField
@@ -319,15 +328,14 @@ const RoastsPage = () => {
               </Box>
             </Box>
           </CardContent>
-        </Card>
-      </Grid>
-      <Grid item xs={12} md={8}>
-        <Card sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
-          <CardHeader
-            title="Historial tostiones"
-            subheader={`${filteredRoasts.length} de ${roasts.length} registros`}
-          />
-          <CardContent sx={{ flexGrow: 1, overflowX: "auto" }}>
+        </Collapse>
+      </Card>
+      <Card sx={{ display: "flex", flexDirection: "column", flexGrow: 1 }}>
+        <CardHeader
+          title="Historial tostiones"
+          subheader={`${filteredRoasts.length} de ${roasts.length} registros`}
+        />
+        <CardContent sx={{ flexGrow: 1, overflowX: "auto" }}>
             <FilterPanel
               isDirty={isFiltering}
               onClear={() =>
@@ -447,10 +455,9 @@ const RoastsPage = () => {
                   ))
                 )}
                 </TableBody>
-              </Table>
+            </Table>
           </CardContent>
-        </Card>
-      </Grid>
+      </Card>
       <ConfirmDialog
         open={Boolean(deleteTarget)}
         title="Eliminar tostion"
@@ -464,7 +471,7 @@ const RoastsPage = () => {
         confirmLabel="Eliminar"
         loading={deleting}
       />
-    </Grid>
+    </Stack>
   );
 };
 

@@ -4,9 +4,10 @@ import {
   Card,
   CardContent,
   CardHeader,
-  Grid,
+  Collapse,
   IconButton,
   MenuItem,
+  Stack,
   Table,
   TableBody,
   TableCell,
@@ -58,6 +59,7 @@ const SalesPage = () => {
   });
   const [deleteTarget, setDeleteTarget] = useState<Sale | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [formOpen, setFormOpen] = useState(true);
 
   const loadData = useMemo(
     () =>
@@ -274,10 +276,17 @@ const SalesPage = () => {
   };
 
   return (
-    <Grid container spacing={4}>
-      <Grid item xs={12} md={5}>
-        <Card sx={{ height: "100%" }}>
-          <CardHeader title={saleEditingId ? "Editar venta" : "Registrar venta"} />
+    <Stack spacing={4}>
+      <Card>
+        <CardHeader
+          title={saleEditingId ? "Editar venta" : "Registrar venta"}
+          action={
+            <Button size="small" onClick={() => setFormOpen((prev) => !prev)}>
+              {formOpen ? "Ocultar" : "Mostrar"}
+            </Button>
+          }
+        />
+        <Collapse in={formOpen} timeout="auto" unmountOnExit>
           <CardContent>
             <Box component="form" display="flex" flexDirection="column" gap={2} onSubmit={handleSaveSale}>
               <TextField
@@ -358,15 +367,14 @@ const SalesPage = () => {
               </Box>
             </Box>
           </CardContent>
-        </Card>
-      </Grid>
-      <Grid item xs={12} md={7}>
-        <Card sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
-          <CardHeader
-            title="Historial de ventas"
-            subheader={`${filteredSales.length} de ${sales.length} registros`}
-          />
-          <CardContent sx={{ flexGrow: 1, overflowX: "auto" }}>
+        </Collapse>
+      </Card>
+      <Card sx={{ display: "flex", flexDirection: "column", flexGrow: 1 }}>
+        <CardHeader
+          title="Historial de ventas"
+          subheader={`${filteredSales.length} de ${sales.length} registros`}
+        />
+        <CardContent sx={{ flexGrow: 1, overflowX: "auto" }}>
             <FilterPanel
               isDirty={isFiltering}
               onClear={() =>
@@ -515,15 +523,12 @@ const SalesPage = () => {
                     ))
                   )}
                 </TableBody>
-              </Table>
+            </Table>
           </CardContent>
-        </Card>
-      </Grid>
-      <Grid item xs={12}>
-        <Typography variant="body2" color="text.secondary">
-          ¿Necesitas crear o editar clientes? Usa la seccion dedicada en el menu "Clientes".
-        </Typography>
-      </Grid>
+      </Card>
+      <Typography variant="body2" color="text.secondary">
+        ¿Necesitas crear o editar clientes? Usa la seccion dedicada en el menu "Clientes".
+      </Typography>
       <ConfirmDialog
         open={Boolean(deleteTarget)}
         title="Eliminar venta"
@@ -537,7 +542,7 @@ const SalesPage = () => {
         confirmLabel="Eliminar"
         loading={deleting}
       />
-    </Grid>
+    </Stack>
   );
 };
 

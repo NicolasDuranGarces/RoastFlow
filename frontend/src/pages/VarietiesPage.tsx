@@ -4,8 +4,9 @@ import {
   Card,
   CardContent,
   CardHeader,
-  Grid,
+  Collapse,
   IconButton,
+  Stack,
   Table,
   TableBody,
   TableCell,
@@ -34,6 +35,7 @@ const VarietiesPage = () => {
   const [filters, setFilters] = useState({ name: "", description: "" });
   const [deleteTarget, setDeleteTarget] = useState<Variety | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [formOpen, setFormOpen] = useState(true);
 
   const loadVarieties = useMemo(
     () =>
@@ -128,10 +130,18 @@ const VarietiesPage = () => {
   };
 
   return (
-    <Grid container spacing={4} sx={{ height: "100%" }}>
-      <Grid item xs={12} md={5}>
-        <Card sx={{ height: "100%" }}>
-          <CardHeader title={editingId ? "Editar variedad" : "Registrar variedad"} subheader="Gestiona variedades y procesos" />
+    <Stack spacing={4} sx={{ height: "100%" }}>
+      <Card>
+        <CardHeader
+          title={editingId ? "Editar variedad" : "Registrar variedad"}
+          subheader="Gestiona variedades y procesos"
+          action={
+            <Button size="small" onClick={() => setFormOpen((prev) => !prev)}>
+              {formOpen ? "Ocultar" : "Mostrar"}
+            </Button>
+          }
+        />
+        <Collapse in={formOpen} timeout="auto" unmountOnExit>
           <CardContent>
             <Box component="form" onSubmit={handleSubmit} display="flex" flexDirection="column" gap={2}>
               <TextField
@@ -159,15 +169,14 @@ const VarietiesPage = () => {
               </Box>
             </Box>
           </CardContent>
-        </Card>
-      </Grid>
-      <Grid item xs={12} md={7}>
-        <Card sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
-          <CardHeader
-            title="Variedades registradas"
-            subheader={`${filteredVarieties.length} de ${varieties.length} registros`}
-          />
-          <CardContent sx={{ flexGrow: 1, overflowX: "auto" }}>
+        </Collapse>
+      </Card>
+      <Card sx={{ flexGrow: 1, display: "flex", flexDirection: "column" }}>
+        <CardHeader
+          title="Variedades registradas"
+          subheader={`${filteredVarieties.length} de ${varieties.length} registros`}
+        />
+        <CardContent sx={{ flexGrow: 1, overflowX: "auto" }}>
             <FilterPanel
               isDirty={isFiltering}
               onClear={() => setFilters({ name: "", description: "" })}
@@ -223,8 +232,7 @@ const VarietiesPage = () => {
               </Table>
             )}
           </CardContent>
-        </Card>
-      </Grid>
+      </Card>
       <ConfirmDialog
         open={Boolean(deleteTarget)}
         title="Eliminar variedad"
@@ -238,7 +246,7 @@ const VarietiesPage = () => {
         confirmLabel="Eliminar"
         loading={deleting}
       />
-    </Grid>
+    </Stack>
   );
 };
 

@@ -4,8 +4,9 @@ import {
   Card,
   CardContent,
   CardHeader,
-  Grid,
+  Collapse,
   IconButton,
+  Stack,
   Table,
   TableBody,
   TableCell,
@@ -44,6 +45,7 @@ const ExpensesPage = () => {
   });
   const [deleteTarget, setDeleteTarget] = useState<Expense | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [formOpen, setFormOpen] = useState(true);
 
   const loadExpenses = useMemo(
     () =>
@@ -166,10 +168,17 @@ const ExpensesPage = () => {
   };
 
   return (
-    <Grid container spacing={4}>
-      <Grid item xs={12} md={4}>
-        <Card sx={{ height: "100%" }}>
-          <CardHeader title={editingId ? "Editar gasto" : "Registrar gasto"} />
+    <Stack spacing={4}>
+      <Card>
+        <CardHeader
+          title={editingId ? "Editar gasto" : "Registrar gasto"}
+          action={
+            <Button size="small" onClick={() => setFormOpen((prev) => !prev)}>
+              {formOpen ? "Ocultar" : "Mostrar"}
+            </Button>
+          }
+        />
+        <Collapse in={formOpen} timeout="auto" unmountOnExit>
           <CardContent>
             <Box component="form" display="flex" flexDirection="column" gap={2} onSubmit={handleSubmit}>
               <TextField
@@ -212,15 +221,14 @@ const ExpensesPage = () => {
               </Box>
             </Box>
           </CardContent>
-        </Card>
-      </Grid>
-      <Grid item xs={12} md={8}>
-        <Card sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
-          <CardHeader
-            title="Historial de gastos"
-            subheader={`${filteredExpenses.length} de ${expenses.length} registros`}
-          />
-          <CardContent sx={{ flexGrow: 1, overflowX: "auto" }}>
+        </Collapse>
+      </Card>
+      <Card sx={{ display: "flex", flexDirection: "column", flexGrow: 1 }}>
+        <CardHeader
+          title="Historial de gastos"
+          subheader={`${filteredExpenses.length} de ${expenses.length} registros`}
+        />
+        <CardContent sx={{ flexGrow: 1, overflowX: "auto" }}>
             <FilterPanel
               isDirty={isFiltering}
               onClear={() => setFilters({ category: "", dateFrom: "", dateTo: "", minAmount: "", maxAmount: "" })}
@@ -302,8 +310,7 @@ const ExpensesPage = () => {
               </TableBody>
             </Table>
           </CardContent>
-        </Card>
-      </Grid>
+      </Card>
       <ConfirmDialog
         open={Boolean(deleteTarget)}
         title="Eliminar gasto"
@@ -317,7 +324,7 @@ const ExpensesPage = () => {
         confirmLabel="Eliminar"
         loading={deleting}
       />
-    </Grid>
+    </Stack>
   );
 };
 

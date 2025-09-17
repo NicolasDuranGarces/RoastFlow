@@ -4,8 +4,9 @@ import {
   Card,
   CardContent,
   CardHeader,
-  Grid,
+  Collapse,
   IconButton,
+  Stack,
   Table,
   TableBody,
   TableCell,
@@ -34,6 +35,7 @@ const FarmsPage = () => {
   const [filters, setFilters] = useState({ name: "", location: "", notes: "" });
   const [deleteTarget, setDeleteTarget] = useState<Farm | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [formOpen, setFormOpen] = useState(true);
 
   const loadFarms = useMemo(
     () =>
@@ -130,10 +132,18 @@ const FarmsPage = () => {
   };
 
   return (
-    <Grid container spacing={4} sx={{ height: "100%" }}>
-      <Grid item xs={12} md={5}>
-        <Card sx={{ height: "100%" }}>
-          <CardHeader title={editingId ? "Editar finca" : "Registrar finca"} subheader="Gestiona las fincas proveedoras" />
+    <Stack spacing={4} sx={{ height: "100%" }}>
+      <Card>
+        <CardHeader
+          title={editingId ? "Editar finca" : "Registrar finca"}
+          subheader="Gestiona las fincas proveedoras"
+          action={
+            <Button size="small" onClick={() => setFormOpen((prev) => !prev)}>
+              {formOpen ? "Ocultar" : "Mostrar"}
+            </Button>
+          }
+        />
+        <Collapse in={formOpen} timeout="auto" unmountOnExit>
           <CardContent>
             <Box component="form" onSubmit={handleSubmit} display="flex" flexDirection="column" gap={2}>
               <TextField
@@ -166,15 +176,14 @@ const FarmsPage = () => {
               </Box>
             </Box>
           </CardContent>
-        </Card>
-      </Grid>
-      <Grid item xs={12} md={7}>
-        <Card sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
-          <CardHeader
-            title="Fincas registradas"
-            subheader={`${filteredFarms.length} de ${farms.length} registros`}
-          />
-          <CardContent sx={{ flexGrow: 1, overflowX: "auto" }}>
+        </Collapse>
+      </Card>
+      <Card sx={{ flexGrow: 1, display: "flex", flexDirection: "column" }}>
+        <CardHeader
+          title="Fincas registradas"
+          subheader={`${filteredFarms.length} de ${farms.length} registros`}
+        />
+        <CardContent sx={{ flexGrow: 1, overflowX: "auto" }}>
             <FilterPanel
               isDirty={isFiltering}
               onClear={() => setFilters({ name: "", location: "", notes: "" })}
@@ -236,8 +245,7 @@ const FarmsPage = () => {
               </Table>
             )}
           </CardContent>
-        </Card>
-      </Grid>
+      </Card>
       <ConfirmDialog
         open={Boolean(deleteTarget)}
         title="Eliminar finca"
@@ -249,7 +257,7 @@ const FarmsPage = () => {
         confirmLabel="Eliminar"
         loading={deleting}
       />
-    </Grid>
+    </Stack>
   );
 };
 

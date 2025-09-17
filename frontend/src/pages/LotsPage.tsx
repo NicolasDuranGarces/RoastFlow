@@ -4,9 +4,10 @@ import {
   Card,
   CardContent,
   CardHeader,
-  Grid,
+  Collapse,
   IconButton,
   MenuItem,
+  Stack,
   Table,
   TableBody,
   TableCell,
@@ -57,6 +58,7 @@ const LotsPage = () => {
   });
   const [deleteTarget, setDeleteTarget] = useState<CoffeeLot | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [formOpen, setFormOpen] = useState(true);
 
   const loadData = useMemo(
     () =>
@@ -211,10 +213,17 @@ const LotsPage = () => {
   };
 
   return (
-    <Grid container spacing={3}>
-      <Grid item xs={12} md={4}>
-        <Card sx={{ height: "100%" }}>
-          <CardHeader title={editingId ? "Editar lote" : "Registrar compra cafe verde"} />
+    <Stack spacing={4}>
+      <Card>
+        <CardHeader
+          title={editingId ? "Editar lote" : "Registrar compra cafe verde"}
+          action={
+            <Button size="small" onClick={() => setFormOpen((prev) => !prev)}>
+              {formOpen ? "Ocultar" : "Mostrar"}
+            </Button>
+          }
+        />
+        <Collapse in={formOpen} timeout="auto" unmountOnExit>
           <CardContent>
             <Box component="form" display="flex" flexDirection="column" gap={2} onSubmit={handleSubmit}>
               <TextField
@@ -309,15 +318,14 @@ const LotsPage = () => {
               </Box>
             </Box>
           </CardContent>
-        </Card>
-      </Grid>
-      <Grid item xs={12} md={8}>
-        <Card sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
-          <CardHeader
-            title="Lotes registrados"
-            subheader={`${filteredLots.length} de ${lots.length} registros`}
-          />
-          <CardContent sx={{ flexGrow: 1, overflowX: "auto" }}>
+        </Collapse>
+      </Card>
+      <Card sx={{ display: "flex", flexDirection: "column", flexGrow: 1 }}>
+        <CardHeader
+          title="Lotes registrados"
+          subheader={`${filteredLots.length} de ${lots.length} registros`}
+        />
+        <CardContent sx={{ flexGrow: 1, overflowX: "auto" }}>
             <FilterPanel
               isDirty={isFiltering}
               onClear={() =>
@@ -458,10 +466,9 @@ const LotsPage = () => {
                   ))
                 )}
                 </TableBody>
-              </Table>
+            </Table>
           </CardContent>
-        </Card>
-      </Grid>
+      </Card>
       <ConfirmDialog
         open={Boolean(deleteTarget)}
         title="Eliminar lote"
@@ -475,7 +482,7 @@ const LotsPage = () => {
         confirmLabel="Eliminar"
         loading={deleting}
       />
-    </Grid>
+    </Stack>
   );
 };
 

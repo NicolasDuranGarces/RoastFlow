@@ -5,10 +5,11 @@ import {
   CardContent,
   CardHeader,
   Checkbox,
+  Collapse,
   FormControlLabel,
-  Grid,
   IconButton,
   MenuItem,
+  Stack,
   Table,
   TableBody,
   TableCell,
@@ -45,6 +46,7 @@ const UsersPage = () => {
   const [filters, setFilters] = useState({ search: "", active: "all", role: "all" });
   const [deleteTarget, setDeleteTarget] = useState<User | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [formOpen, setFormOpen] = useState(true);
 
   const loadUsers = useMemo(
     () =>
@@ -182,10 +184,17 @@ const UsersPage = () => {
   };
 
   return (
-    <Grid container spacing={4}>
-      <Grid item xs={12} md={5}>
-        <Card sx={{ height: "100%" }}>
-          <CardHeader title={editingId ? "Editar usuario" : "Crear usuario"} />
+    <Stack spacing={4}>
+      <Card>
+        <CardHeader
+          title={editingId ? "Editar usuario" : "Crear usuario"}
+          action={
+            <Button size="small" onClick={() => setFormOpen((prev) => !prev)}>
+              {formOpen ? "Ocultar" : "Mostrar"}
+            </Button>
+          }
+        />
+        <Collapse in={formOpen} timeout="auto" unmountOnExit>
           <CardContent>
             <Box component="form" display="flex" flexDirection="column" gap={2} onSubmit={handleSubmit}>
               <TextField
@@ -238,15 +247,14 @@ const UsersPage = () => {
               </Box>
             </Box>
           </CardContent>
-        </Card>
-      </Grid>
-      <Grid item xs={12} md={7}>
-        <Card sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
-          <CardHeader
-            title="Usuarios"
-            subheader={`${filteredUsers.length} de ${users.length} registrados`}
-          />
-          <CardContent sx={{ flexGrow: 1, overflowX: "auto" }}>
+        </Collapse>
+      </Card>
+      <Card sx={{ display: "flex", flexDirection: "column", flexGrow: 1 }}>
+        <CardHeader
+          title="Usuarios"
+          subheader={`${filteredUsers.length} de ${users.length} registrados`}
+        />
+        <CardContent sx={{ flexGrow: 1, overflowX: "auto" }}>
             <FilterPanel
               isDirty={isFiltering}
               onClear={() => setFilters({ search: "", active: "all", role: "all" })}
@@ -320,8 +328,7 @@ const UsersPage = () => {
               </Table>
             )}
           </CardContent>
-        </Card>
-      </Grid>
+      </Card>
       <ConfirmDialog
         open={Boolean(deleteTarget)}
         title="Eliminar usuario"
@@ -335,7 +342,7 @@ const UsersPage = () => {
         confirmLabel="Eliminar"
         loading={deleting}
       />
-    </Grid>
+    </Stack>
   );
 };
 
