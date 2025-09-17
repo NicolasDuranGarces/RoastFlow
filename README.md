@@ -1,47 +1,108 @@
-# RoastSync
-
-Aplicacion full-stack para controlar la trazabilidad del cafe desde la compra del cafe verde hasta la venta del cafe tostado.
-
-## Stack
-
-- **Backend**: FastAPI + SQLModel + PostgreSQL
-- **Frontend**: React + Vite + Material UI
-- **Infraestructura**: Docker, Docker Compose y Makefile
-
-## Como ejecutar
-
-1. Copia las variables de entorno por defecto si deseas ajustarlas:
-   ```bash
-   cp backend/.env backend/.env.local  # opcional
-   ```
-2. Construye los contenedores:
-   ```bash
-   make build
-   ```
-3. Levanta los servicios de base de datos, API y frontend:
-   ```bash
-   make up
-   ```
-4. La API quedara disponible en `http://localhost:8000` y la interfaz web en `http://localhost:5173`.
-
-Credenciales iniciales (configurables via variables de entorno):
-- correo: `admin@caturro.cafe`
-- clave: `admin123`
-
-## Makefile util
-
-- `make up`: inicia la aplicacion en modo desarrollo con recarga automatica.
-- `make down`: detiene y elimina los contenedores.
-- `make logs`: sigue los logs de frontend y backend.
-- `make backend-shell`: entra al contenedor del backend.
-- `make db-shell`: abre una consola de `psql` en la base de datos.
-
-## Flujo principal
-
-- **Catalogo**: administra fincas y variedades.
-- **Lotes**: registra compras de cafe verde.
-- **Tostiones**: registra tostiones calculando automaticamente la merma.
-- **Ventas**: registra clientes y ventas asociadas.
-- **Gastos**: registra gastos adicionales.
-- **Dashboard**: resume inventario, ventas y utilidad neta.
 # RoastFlow
+
+Plataforma full-stack para administrar la trazabilidad del café desde el grano verde hasta la venta final. Centraliza catálogos, lotes, tostiones, ventas y gastos para ofrecer visibilidad total del negocio cafetero.
+
+## Características principales
+- Gestión de catálogo de fincas, variedades y usuarios.
+- Registro de lotes de café verde y seguimiento de tostiones con cálculo de merma.
+- Control de clientes, ventas y gastos con indicadores resumidos en un dashboard.
+- API basada en FastAPI con autenticación JWT y creación automática de superusuario inicial.
+- Frontend en React/Vite con Material UI y cliente Axios configurado para consumir la API.
+
+## Stack tecnológico
+- **Backend:** FastAPI, SQLModel, PostgreSQL, Uvicorn.
+- **Frontend:** React 18, Vite, TypeScript, Material UI.
+- **Infraestructura:** Docker, Docker Compose y Makefile para tareas frecuentes.
+
+## Arquitectura general
+- `backend/`: servicio REST que expone endpoints bajo `/api/v1`, maneja autenticación y persistencia.
+- `frontend/`: cliente SPA que consume la API y gestiona el flujo operativo.
+- `docker-compose.yml`: orquesta Postgres, backend y frontend para desarrollo local.
+
+## Requisitos previos
+- Docker y Docker Compose (o `docker compose` plugin).
+- GNU Make (opcional pero recomendado para los atajos provistos).
+- Node.js 18+ y Python 3.11+ si deseas ejecutar los servicios sin contenedores.
+
+## Configuración de variables de entorno
+1. Backend:
+   ```bash
+   cp backend/.env.example backend/.env
+   ```
+   Ajusta las variables `DATABASE_URL`, `SECRET_KEY` y credenciales del superusuario.
+2. Frontend:
+   ```bash
+   cp frontend/.env.example frontend/.env
+   ```
+   Define `VITE_API_URL` apuntando al host donde corre el backend.
+
+## Puesta en marcha con Docker
+```bash
+make build   # construye las imágenes
+make up      # levanta Postgres, backend y frontend
+```
+Una vez iniciados los servicios:
+- API: http://localhost:8000/docs
+- Frontend: http://localhost:5173
+
+Para detener los servicios:
+```bash
+make down
+```
+
+Credenciales iniciales por defecto (configurables en `.env`):
+- Correo: `admin@caturro.cafe`
+- Clave: `admin123`
+
+## Desarrollo sin Docker
+### Backend
+```bash
+cd backend
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+uvicorn app.main:app --reload
+```
+La API quedará disponible en `http://localhost:8000`.
+
+### Frontend
+```bash
+cd frontend
+npm install
+npm run dev -- --host 0.0.0.0 --port 5173
+```
+La SPA se servirá en `http://localhost:5173` y recargará automáticamente.
+
+## Tareas del Makefile
+- `make up`: inicia los contenedores en segundo plano.
+- `make down`: detiene y limpia los contenedores.
+- `make logs`: sigue los logs de backend y frontend.
+- `make backend-shell`: abre una shell dentro del contenedor del backend.
+- `make frontend-shell`: abre una shell en el contenedor del frontend.
+- `make db-shell`: abre `psql` conectado a la base de datos Postgres.
+
+## Estructura del proyecto
+```text
+.
+├── backend
+│   ├── app
+│   │   ├── api
+│   │   ├── core
+│   │   ├── models
+│   │   └── schemas
+│   ├── Dockerfile
+│   └── requirements.txt
+├── frontend
+│   ├── src
+│   ├── public
+│   ├── Dockerfile
+│   └── package.json
+├── docker-compose.yml
+├── Makefile
+└── README.md
+```
+
+## Próximos pasos sugeridos
+- Agregar pruebas automatizadas para backend y frontend.
+- Configurar despliegues (CI/CD) y generación de artefactos.
+- Documentar los endpoints de la API utilizando OpenAPI o apidoc adicional.
