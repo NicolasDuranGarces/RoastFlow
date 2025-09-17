@@ -41,18 +41,14 @@ const FilterPanel = ({ title = "Filtros", children, onClear, isDirty }: FilterPa
     <Paper
       elevation={0}
       sx={{
-        borderRadius: 4,
+        borderRadius: 12,
         p: { xs: 2.5, md: 3 },
         mb: 3,
-        backgroundImage: `linear-gradient(135deg, ${alpha(theme.palette.background.paper, 0.95)} 0%, ${alpha(
-          theme.palette.common.white,
-          0.82
-        )} 100%)`,
-        border: `1px solid ${alpha(theme.palette.primary.main, 0.08)}`,
+        backgroundColor: theme.palette.background.paper,
+        border: `1px solid ${alpha(theme.palette.primary.main, 0.06)}`,
         boxShadow: isDirty
-          ? "0 20px 45px rgba(31, 26, 56, 0.12)"
-          : "0 14px 32px rgba(31, 26, 56, 0.08)",
-        backdropFilter: "blur(14px)"
+          ? "0 12px 28px rgba(31, 41, 55, 0.16)"
+          : "0 10px 22px rgba(31, 41, 55, 0.08)"
       }}
     >
       <Stack spacing={2}>

@@ -11,17 +11,17 @@ const theme = createTheme({
   palette: {
     mode: "light",
     primary: {
-      main: "#1f1a38"
+      main: "#1f2937"
     },
     secondary: {
-      main: "#ff7b54"
+      main: "#f97316"
     },
     background: {
-      default: "#f5f2ed",
+      default: "#eef2f6",
       paper: "#ffffff"
     },
     text: {
-      primary: "#1b1a2f"
+      primary: "#1f2937"
     }
   },
   typography: {
@@ -31,15 +31,15 @@ const theme = createTheme({
     MuiButton: {
       styleOverrides: {
         root: {
-          borderRadius: 16,
+          borderRadius: 12,
           textTransform: "none",
           fontWeight: 600,
-          paddingInline: 22,
+          paddingInline: 20,
           paddingBlock: 12,
-          boxShadow: "0 12px 25px rgba(31, 26, 56, 0.15)",
+          boxShadow: "0 12px 22px rgba(31, 41, 55, 0.14)",
           transition: "all 0.25s ease",
           '&:hover': {
-            boxShadow: "0 16px 32px rgba(255, 123, 84, 0.25)",
+            boxShadow: "0 18px 30px rgba(249, 115, 22, 0.25)",
             transform: "translateY(-1px)"
           }
         }
@@ -48,17 +48,17 @@ const theme = createTheme({
     MuiPaper: {
       styleOverrides: {
         root: {
-          borderRadius: 20
+          borderRadius: 12
         }
       }
     },
     MuiOutlinedInput: {
       styleOverrides: {
         root: ({ theme }) => ({
-          borderRadius: 18,
-          backgroundColor: alpha(theme.palette.common.white, 0.92),
+          borderRadius: 12,
+          backgroundColor: alpha(theme.palette.common.white, 0.96),
           border: `1px solid ${alpha(theme.palette.primary.main, 0.08)}`,
-          boxShadow: "0 12px 32px rgba(31, 26, 56, 0.08)",
+          boxShadow: "0 10px 24px rgba(31, 41, 55, 0.08)",
           transition: theme.transitions.create(["box-shadow", "transform", "border-color"], {
             duration: theme.transitions.duration.shorter
           }),
@@ -66,21 +66,21 @@ const theme = createTheme({
             borderColor: alpha(theme.palette.secondary.main, 0.5)
           },
           '&.Mui-focused': {
-            transform: "translateY(-2px)",
-            boxShadow: `0 20px 44px ${alpha(theme.palette.secondary.main, 0.28)}`,
+            transform: "translateY(-1px)",
+            boxShadow: `0 18px 36px ${alpha(theme.palette.secondary.main, 0.24)}`,
             backgroundColor: theme.palette.common.white
           },
           '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
             borderColor: theme.palette.secondary.main
           },
           '& .MuiOutlinedInput-input': {
-            padding: "16px 20px"
+            padding: "14px 16px"
           },
           '& .MuiOutlinedInput-inputMultiline': {
             padding: 0
           },
           '& .MuiOutlinedInput-notchedOutline': {
-            borderWidth: 1.4,
+            borderWidth: 1.2,
             borderColor: alpha(theme.palette.primary.main, 0.12)
           }
         })
@@ -90,8 +90,8 @@ const theme = createTheme({
       styleOverrides: {
         root: ({ theme }) => ({
           fontWeight: 600,
-          letterSpacing: 0.2,
-          color: alpha(theme.palette.text.primary, 0.58),
+          letterSpacing: 0.3,
+          color: alpha(theme.palette.text.primary, 0.6),
           '&.Mui-focused': {
             color: theme.palette.secondary.main
           }
@@ -101,8 +101,8 @@ const theme = createTheme({
     MuiSelect: {
       styleOverrides: {
         select: {
-          padding: "16px 20px",
-          borderRadius: 18
+          padding: "14px 16px",
+          borderRadius: 12
         },
         icon: ({ theme }) => ({
           color: alpha(theme.palette.text.primary, 0.56)
@@ -112,9 +112,9 @@ const theme = createTheme({
     MuiMenuItem: {
       styleOverrides: {
         root: ({ theme }) => ({
-          borderRadius: 14,
-          margin: "4px 8px",
-          paddingInline: 18,
+          borderRadius: 10,
+          margin: "2px 4px",
+          paddingInline: 16,
           paddingBlock: 10,
           transition: theme.transitions.create(["background-color", "transform"], {
             duration: theme.transitions.duration.shorter
@@ -134,11 +134,11 @@ const theme = createTheme({
     MuiTableHead: {
       styleOverrides: {
         root: ({ theme }) => ({
-          backgroundColor: alpha(theme.palette.primary.main, 0.04),
+          backgroundColor: alpha(theme.palette.primary.main, 0.06),
           '& .MuiTableCell-root': {
             fontWeight: 700,
             textTransform: "uppercase",
-            letterSpacing: 0.7,
+            letterSpacing: 0.5,
             fontSize: "0.75rem",
             color: alpha(theme.palette.text.primary, 0.7)
           }
