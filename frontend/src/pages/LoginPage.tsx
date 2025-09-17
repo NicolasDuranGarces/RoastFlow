@@ -21,8 +21,8 @@ import { useAuth } from "../hooks/useAuth";
 const LoginPage = () => {
   const { login, isAuthenticated, loading } = useAuth();
   const navigate = useNavigate();
-  const [email, setEmail] = useState("admin@caturro.cafe");
-  const [password, setPassword] = useState("admin123");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
 

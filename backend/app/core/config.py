@@ -3,7 +3,6 @@ from typing import Any
 
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic_core import PydanticCustomError
 
 import json
 
@@ -35,14 +34,12 @@ class Settings(BaseSettings):
                     parsed = json.loads(stripped)
                     if isinstance(parsed, list):
                         return [str(item).strip() for item in parsed if str(item).strip()]
-                except json.JSONDecodeError as exc:  # pragma: no cover
-                    raise PydanticCustomError("cors_origins", "Invalid JSON for BACKEND_CORS_ORIGINS") from exc
+                except json.JSONDecodeError:
+                    pass
             return [origin.strip() for origin in stripped.split(",") if origin.strip()]
-        if isinstance(value, (list, tuple)):
+        if isinstance(value, (list, tuple, set)):
             return [str(origin).strip() for origin in value if str(origin).strip()]
-        if value is None:
-            return []
-        raise ValueError("backend_cors_origins must be a list or comma separated string")
+        return []
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
