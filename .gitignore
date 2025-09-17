@@ -1,0 +1,56 @@
+# ---- General ----
+.DS_Store
+Thumbs.db
+*.log
+logs/
+tmp/
+.cache/
+
+# ---- Python / Backend ----
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.sqlite3
+.mypy_cache/
+.pytest_cache/
+.coverage
+coverage/
+htmlcov/
+*.egg-info/
+.eggs/
+.venv/
+venv/
+env/
+.poetry/
+.poetry-cache/
+
+# ---- Frontend (Node / Vite) ----
+node_modules/
+**/node_modules/
+frontend/dist/
+*.tsbuildinfo
+.eslintcache
+.stylelintcache
+.vite/
+frontend/.vite/
+
+# ---- Environment files ----
+.env
+.env.*
+*.env
+*.env.*
+!.env.example
+!*/.env.example
+
+# ---- Editors & IDEs ----
+.vscode/
+.idea/
+*.swp
+*.swo
+*.iml
+
+# ---- Docker / Compose ----
+postgres_data/
+_volumes/
