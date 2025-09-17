@@ -3,6 +3,9 @@ from typing import Any
 
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_core import PydanticCustomError
+
+import json
 
 
 class Settings(BaseSettings):
@@ -14,6 +17,7 @@ class Settings(BaseSettings):
     database_url: str = "postgresql://postgres:postgres@db:5432/tuestecafe"
     first_superuser_email: str | None = None
     first_superuser_password: str | None = None
+    root_path: str | None = ""
     backend_cors_origins: list[str] = [
         "http://localhost:5173",
         "http://127.0.0.1:5173",
@@ -23,10 +27,22 @@ class Settings(BaseSettings):
     @classmethod
     def assemble_cors_origins(cls, value: Any) -> list[str]:
         if isinstance(value, str):
-            return [origin.strip() for origin in value.split(",") if origin.strip()]
+            stripped = value.strip()
+            if not stripped:
+                return []
+            if stripped.startswith("["):
+                try:
+                    parsed = json.loads(stripped)
+                    if isinstance(parsed, list):
+                        return [str(item).strip() for item in parsed if str(item).strip()]
+                except json.JSONDecodeError as exc:  # pragma: no cover
+                    raise PydanticCustomError("cors_origins", "Invalid JSON for BACKEND_CORS_ORIGINS") from exc
+            return [origin.strip() for origin in stripped.split(",") if origin.strip()]
         if isinstance(value, (list, tuple)):
             return [str(origin).strip() for origin in value if str(origin).strip()]
-        return []
+        if value is None:
+            return []
+        raise ValueError("backend_cors_origins must be a list or comma separated string")
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 

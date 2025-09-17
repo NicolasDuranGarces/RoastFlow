@@ -6,7 +6,7 @@ from .core.config import settings
 from .core.initial_data import create_initial_superuser
 from .db import init_db
 
-app = FastAPI(title=settings.project_name)
+app = FastAPI(title=settings.project_name, root_path=settings.root_path or "")
 
 cors_origins = settings.backend_cors_origins or ["*"]
 
