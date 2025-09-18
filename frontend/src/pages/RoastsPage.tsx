@@ -21,8 +21,8 @@ import DeleteRoundedIcon from "@mui/icons-material/DeleteRounded";
 import EditRoundedIcon from "@mui/icons-material/EditRounded";
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 
-import { createRoast, deleteRoast, fetchLots, fetchRoasts, updateRoast } from "../services/api";
-import type { CoffeeLot, RoastBatch } from "../types";
+import { createRoast, deleteRoast, fetchFarms, fetchLots, fetchRoasts, fetchVarieties, updateRoast } from "../services/api";
+import type { CoffeeLot, Farm, RoastBatch, Variety } from "../types";
 import ConfirmDialog from "../components/ConfirmDialog";
 import FilterPanel from "../components/FilterPanel";
 
@@ -37,6 +37,8 @@ const initialForm = {
 
 const RoastsPage = () => {
   const [lots, setLots] = useState<CoffeeLot[]>([]);
+  const [farms, setFarms] = useState<Farm[]>([]);
+  const [varieties, setVarieties] = useState<Variety[]>([]);
   const [roasts, setRoasts] = useState<RoastBatch[]>([]);
   const [form, setForm] = useState(initialForm);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -60,9 +62,16 @@ const RoastsPage = () => {
     () =>
       async () => {
         try {
-          const [lotsRes, roastsRes] = await Promise.all([fetchLots(), fetchRoasts()]);
+          const [lotsRes, roastsRes, farmsRes, varietiesRes] = await Promise.all([
+            fetchLots(),
+            fetchRoasts(),
+            fetchFarms(),
+            fetchVarieties()
+          ]);
           setLots(lotsRes.data as CoffeeLot[]);
           setRoasts(roastsRes.data as RoastBatch[]);
+          setFarms(farmsRes.data as Farm[]);
+          setVarieties(varietiesRes.data as Variety[]);
         } catch (error) {
           console.error("Failed to load roasts", error);
         }
@@ -265,11 +274,25 @@ const RoastsPage = () => {
                 onChange={(e) => setForm((prev) => ({ ...prev, lot_id: e.target.value }))}
                 required
               >
-                {lots.map((lot) => (
-                  <MenuItem key={lot.id} value={lot.id}>
-                    Lote #{lot.id} - {lot.process}
-                  </MenuItem>
-                ))}
+                {lots.map((lot) => {
+                  const farmName = farms.find((farm) => farm.id === lot.farm_id)?.name ?? "Finca desconocida";
+                  const varietyName =
+                    varieties.find((variety) => variety.id === lot.variety_id)?.name ?? "Variedad desconocida";
+                  const formattedDate = new Date(lot.purchase_date).toLocaleDateString();
+
+                  return (
+                    <MenuItem key={lot.id} value={String(lot.id)}>
+                      <Box display="flex" flexDirection="column" alignItems="flex-start">
+                        <Typography variant="body2" fontWeight={600}>
+                          {`Lote #${lot.id} · ${varietyName}`}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {`${formattedDate} · ${lot.process} · ${farmName}`}
+                        </Typography>
+                      </Box>
+                    </MenuItem>
+                  );
+                })}
               </TextField>
               <TextField
                 label="Fecha"
