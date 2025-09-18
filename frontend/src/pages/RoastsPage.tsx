@@ -35,6 +35,8 @@ const initialForm = {
   notes: ""
 };
 
+const MIN_AVAILABLE_GREEN_KG = 0.2;
+
 const RoastsPage = () => {
   const [lots, setLots] = useState<CoffeeLot[]>([]);
   const [farms, setFarms] = useState<Farm[]>([]);
@@ -106,6 +108,16 @@ const RoastsPage = () => {
     }
     return getAvailableGreenKg(Number(form.lot_id), editingId);
   }, [form.lot_id, editingId, lots, roasts]);
+
+  const lotOptions = useMemo(() => {
+    return lots.filter((lot) => {
+      const available = getAvailableGreenKg(lot.id, editingId);
+      if (editingId && Number(form.lot_id) === lot.id) {
+        return true;
+      }
+      return available >= MIN_AVAILABLE_GREEN_KG;
+    });
+  }, [editingId, form.lot_id, lots, roasts]);
 
   const filteredRoasts = useMemo(() => {
     return roasts.filter((roast) => {
@@ -274,11 +286,12 @@ const RoastsPage = () => {
                 onChange={(e) => setForm((prev) => ({ ...prev, lot_id: e.target.value }))}
                 required
               >
-                {lots.map((lot) => {
+                {lotOptions.map((lot) => {
                   const farmName = farms.find((farm) => farm.id === lot.farm_id)?.name ?? "Finca desconocida";
                   const varietyName =
                     varieties.find((variety) => variety.id === lot.variety_id)?.name ?? "Variedad desconocida";
                   const formattedDate = new Date(lot.purchase_date).toLocaleDateString();
+                  const available = getAvailableGreenKg(lot.id, editingId);
 
                   return (
                     <MenuItem key={lot.id} value={String(lot.id)}>
@@ -287,7 +300,7 @@ const RoastsPage = () => {
                           {`Lote #${lot.id} · ${varietyName}`}
                         </Typography>
                         <Typography variant="caption" color="text.secondary">
-                          {`${formattedDate} · ${lot.process} · ${farmName}`}
+                          {`${formattedDate} · ${lot.process} · ${farmName} · Disponible: ${available.toFixed(2)} kg`}
                         </Typography>
                       </Box>
                     </MenuItem>
