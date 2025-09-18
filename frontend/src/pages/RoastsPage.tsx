@@ -359,34 +359,45 @@ const RoastsPage = () => {
           subheader={`${filteredRoasts.length} de ${roasts.length} registros`}
         />
         <CardContent sx={{ flexGrow: 1, overflowX: "auto" }}>
-            <FilterPanel
-              isDirty={isFiltering}
-              onClear={() =>
-                setFilters({
-                  lotId: "",
-                  dateFrom: "",
-                  dateTo: "",
-                  minGreen: "",
-                  maxGreen: "",
-                  minRoasted: "",
-                  maxRoasted: "",
-                  roastLevel: ""
-                })
-              }
+          <FilterPanel
+            isDirty={isFiltering}
+            onClear={() =>
+              setFilters({
+                lotId: "",
+                dateFrom: "",
+                dateTo: "",
+                minGreen: "",
+                maxGreen: "",
+                minRoasted: "",
+                maxRoasted: "",
+                roastLevel: ""
+              })
+            }
+          >
+            <TextField
+              select
+              label="Lote"
+              value={filters.lotId}
+              onChange={handleFilterChange("lotId")}
             >
-              <TextField
-                select
-                label="Lote"
-                value={filters.lotId}
-                onChange={handleFilterChange("lotId")}
-              >
-                <MenuItem value="">Todos</MenuItem>
-                {lots.map((lot) => (
+              <MenuItem value="">Todos</MenuItem>
+              {lots.map((lot) => {
+                const varietyName = varieties.find((variety) => variety.id === lot.variety_id)?.name ?? "Variedad";
+                const farmName = farms.find((farm) => farm.id === lot.farm_id)?.name ?? "Finca";
+                return (
                   <MenuItem key={lot.id} value={String(lot.id)}>
-                    Lote #{lot.id}
+                    <Box display="flex" flexDirection="column" alignItems="flex-start">
+                      <Typography variant="body2" fontWeight={600}>
+                        {`Lote #${lot.id} · ${varietyName}`}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {`${new Date(lot.purchase_date).toLocaleDateString()} · ${lot.process} · ${farmName}`}
+                      </Typography>
+                    </Box>
                   </MenuItem>
-                ))}
-              </TextField>
+                );
+              })}
+            </TextField>
               <TextField
                 label="Desde"
                 type="date"
@@ -432,33 +443,67 @@ const RoastsPage = () => {
                 placeholder="Filtrar por nivel"
               />
             </FilterPanel>
-            <Table size="small" stickyHeader>
-              <TableHead>
+          <Table size="small" stickyHeader>
+            <TableHead>
+              <TableRow>
+                <TableCell>Tostión</TableCell>
+                <TableCell>Origen</TableCell>
+                <TableCell align="right">Kg verdes</TableCell>
+                <TableCell align="right">Kg tostado</TableCell>
+                <TableCell align="right">Merma %</TableCell>
+                <TableCell align="right">Acciones</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {filteredRoasts.length === 0 ? (
                 <TableRow>
-                  <TableCell>Lote</TableCell>
-                  <TableCell>Fecha</TableCell>
-                  <TableCell align="right">Kg verdes</TableCell>
-                  <TableCell align="right">Kg tostado</TableCell>
-                  <TableCell align="right">Merma %</TableCell>
-                  <TableCell align="right">Acciones</TableCell>
+                  <TableCell colSpan={6}>
+                    <Typography variant="body2" color="text.secondary">
+                      {isFiltering
+                        ? "No hay tostiones que coincidan con los filtros."
+                        : "No hay tostiones registradas."}
+                    </Typography>
+                  </TableCell>
                 </TableRow>
-                </TableHead>
-                <TableBody>
-                {filteredRoasts.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={6}>
-                      <Typography variant="body2" color="text.secondary">
-                        {isFiltering
-                          ? "No hay tostiones que coincidan con los filtros."
-                          : "No hay tostiones registradas."}
-                      </Typography>
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredRoasts.map((roast) => (
+              ) : (
+                filteredRoasts.map((roast) => {
+                  const lot = lots.find((candidate) => candidate.id === roast.lot_id);
+                  const varietyName = lot
+                    ? varieties.find((variety) => variety.id === lot.variety_id)?.name ?? "Variedad desconocida"
+                    : "Variedad desconocida";
+                  const farmName = lot
+                    ? farms.find((farm) => farm.id === lot.farm_id)?.name ?? "Finca desconocida"
+                    : "Finca desconocida";
+                  const process = lot?.process ?? "Proceso N/D";
+                  const roastDate = new Date(roast.roast_date).toLocaleDateString();
+
+                  return (
                     <TableRow key={roast.id}>
-                      <TableCell>{roast.lot_id}</TableCell>
-                      <TableCell>{roast.roast_date}</TableCell>
+                      <TableCell>
+                        <Stack spacing={0.5}>
+                          <Typography variant="body2" fontWeight={600}>
+                            {`Roast #${roast.id}`}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {`Fecha ${roastDate}`}
+                          </Typography>
+                        </Stack>
+                      </TableCell>
+                      <TableCell>
+                        <Stack spacing={0.5}>
+                          <Typography variant="body2" fontWeight={600}>
+                            {varietyName}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {`${process} · ${farmName}`}
+                          </Typography>
+                          {lot ? (
+                            <Typography variant="caption" color="text.secondary">
+                              {`Compra ${new Date(lot.purchase_date).toLocaleDateString()}`}
+                            </Typography>
+                          ) : null}
+                        </Stack>
+                      </TableCell>
                       <TableCell align="right">{roast.green_input_kg.toFixed(2)}</TableCell>
                       <TableCell align="right">{roast.roasted_output_kg.toFixed(2)}</TableCell>
                       <TableCell align="right">{roast.shrinkage_pct.toFixed(2)}%</TableCell>
@@ -475,10 +520,11 @@ const RoastsPage = () => {
                         </Tooltip>
                       </TableCell>
                     </TableRow>
-                  ))
-                )}
-                </TableBody>
-            </Table>
+                  );
+                })
+              )}
+            </TableBody>
+          </Table>
           </CardContent>
       </Card>
       <ConfirmDialog

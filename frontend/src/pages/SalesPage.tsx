@@ -516,53 +516,100 @@ const SalesPage = () => {
                 placeholder="Buscar en notas"
               />
             </FilterPanel>
-            <Table size="small" stickyHeader>
-              <TableHead>
+          <Table size="small" stickyHeader>
+            <TableHead>
+              <TableRow>
+                <TableCell>Venta</TableCell>
+                <TableCell>Tostión</TableCell>
+                <TableCell>Cliente</TableCell>
+                <TableCell align="right">Kg</TableCell>
+                <TableCell align="right">Precio/kg</TableCell>
+                <TableCell align="right">Total</TableCell>
+                <TableCell align="right">Acciones</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {filteredSales.length === 0 ? (
                 <TableRow>
-                  <TableCell>Fecha</TableCell>
-                  <TableCell>Tostion</TableCell>
-                  <TableCell>Cliente</TableCell>
-                  <TableCell align="right">Kg</TableCell>
-                  <TableCell align="right">Precio/kg</TableCell>
-                  <TableCell align="right">Total</TableCell>
-                  <TableCell align="right">Acciones</TableCell>
+                  <TableCell colSpan={7}>
+                    {isFiltering
+                      ? "No hay ventas que coincidan con los filtros."
+                      : "No hay ventas registradas."}
+                  </TableCell>
                 </TableRow>
-                </TableHead>
-                <TableBody>
-                  {filteredSales.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={7}>
-                        {isFiltering
-                          ? "No hay ventas que coincidan con los filtros."
-                          : "No hay ventas registradas."}
+              ) : (
+                filteredSales.map((sale) => {
+                  const roast = roasts.find((candidate) => candidate.id === sale.roast_batch_id);
+                  const lot = roast ? lots.find((candidate) => candidate.id === roast.lot_id) : undefined;
+                  const varietyName = lot
+                    ? varieties.find((variety) => variety.id === lot.variety_id)?.name ?? "Variedad desconocida"
+                    : "Variedad desconocida";
+                  const farmName = lot
+                    ? farms.find((farm) => farm.id === lot.farm_id)?.name ?? "Finca desconocida"
+                    : "Finca desconocida";
+                  const process = lot?.process ?? "Proceso N/D";
+                  const roastDate = roast ? new Date(roast.roast_date).toLocaleDateString() : "Fecha N/D";
+                  const available = roast ? getAvailableRoastedKg(roast.id, sale.id) : 0;
+                  const customerName = customers.find((c) => c.id === sale.customer_id)?.name ?? "Venta mostrador";
+
+                  return (
+                    <TableRow key={sale.id}>
+                      <TableCell>
+                        <Stack spacing={0.5}>
+                          <Typography variant="body2" fontWeight={600}>
+                            {`Venta #${sale.id}`}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {new Date(sale.sale_date).toLocaleDateString()}
+                          </Typography>
+                        </Stack>
+                      </TableCell>
+                      <TableCell>
+                        <Stack spacing={0.5}>
+                          <Typography variant="body2" fontWeight={600}>
+                            {`Roast #${sale.roast_batch_id} · ${varietyName}`}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {`${roastDate} · ${process} · ${farmName}`}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {`Disponible: ${available.toFixed(2)} kg`}
+                          </Typography>
+                        </Stack>
+                      </TableCell>
+                      <TableCell>
+                        <Stack spacing={0.5}>
+                          <Typography variant="body2" fontWeight={600}>
+                            {customerName}
+                          </Typography>
+                          {sale.customer_id === null ? (
+                            <Typography variant="caption" color="text.secondary">
+                              Venta mostrador
+                            </Typography>
+                          ) : null}
+                        </Stack>
+                      </TableCell>
+                      <TableCell align="right">{sale.quantity_kg.toFixed(2)}</TableCell>
+                      <TableCell align="right">${sale.price_per_kg.toFixed(2)}</TableCell>
+                      <TableCell align="right">${sale.total_price.toFixed(2)}</TableCell>
+                      <TableCell align="right">
+                        <Tooltip title="Editar">
+                          <IconButton color="primary" onClick={() => handleEditSale(sale)}>
+                            <EditRoundedIcon />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Eliminar">
+                          <IconButton color="error" onClick={() => handleDeleteRequest(sale)}>
+                            <DeleteRoundedIcon />
+                          </IconButton>
+                        </Tooltip>
                       </TableCell>
                     </TableRow>
-                  ) : (
-                    filteredSales.map((sale) => (
-                      <TableRow key={sale.id}>
-                        <TableCell>{sale.sale_date}</TableCell>
-                        <TableCell>{sale.roast_batch_id}</TableCell>
-                        <TableCell>{customers.find((c) => c.id === sale.customer_id)?.name ?? ""}</TableCell>
-                        <TableCell align="right">{sale.quantity_kg.toFixed(2)}</TableCell>
-                        <TableCell align="right">${sale.price_per_kg.toFixed(2)}</TableCell>
-                        <TableCell align="right">${sale.total_price.toFixed(2)}</TableCell>
-                        <TableCell align="right">
-                          <Tooltip title="Editar">
-                            <IconButton color="primary" onClick={() => handleEditSale(sale)}>
-                              <EditRoundedIcon />
-                            </IconButton>
-                          </Tooltip>
-                          <Tooltip title="Eliminar">
-                            <IconButton color="error" onClick={() => handleDeleteRequest(sale)}>
-                              <DeleteRoundedIcon />
-                            </IconButton>
-                          </Tooltip>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-            </Table>
+                  );
+                })
+              )}
+            </TableBody>
+          </Table>
           </CardContent>
       </Card>
       <Typography variant="body2" color="text.secondary">
