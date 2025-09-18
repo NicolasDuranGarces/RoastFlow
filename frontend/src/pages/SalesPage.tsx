@@ -45,6 +45,8 @@ const buildEmptySaleForm = () => ({
   notes: ""
 });
 
+const MIN_AVAILABLE_ROAST_KG = 0.1;
+
 const SalesPage = () => {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [roasts, setRoasts] = useState<RoastBatch[]>([]);
@@ -126,6 +128,16 @@ const SalesPage = () => {
     }
     return getAvailableRoastedKg(Number(saleForm.roast_batch_id), saleEditingId);
   }, [saleForm.roast_batch_id, saleEditingId, roasts, sales]);
+
+  const roastOptions = useMemo(() => {
+    return roasts.filter((roast) => {
+      const available = getAvailableRoastedKg(roast.id, saleEditingId);
+      if (saleEditingId && Number(saleForm.roast_batch_id) === roast.id) {
+        return true;
+      }
+      return available >= MIN_AVAILABLE_ROAST_KG;
+    });
+  }, [roasts, sales, saleEditingId, saleForm.roast_batch_id]);
 
   const filteredSales = useMemo(() => {
     return sales.filter((sale) => {
@@ -315,7 +327,7 @@ const SalesPage = () => {
                 onChange={(e) => setSaleForm((prev) => ({ ...prev, roast_batch_id: e.target.value }))}
                 required
               >
-                {roasts.map((roast) => {
+                {roastOptions.map((roast) => {
                   const lot = lots.find((candidate) => candidate.id === roast.lot_id);
                   const varietyName = lot
                     ? varieties.find((variety) => variety.id === lot.variety_id)?.name ?? "Variedad desconocida"
