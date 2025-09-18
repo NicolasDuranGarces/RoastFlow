@@ -4,7 +4,10 @@ import {
   Card,
   CardContent,
   CardHeader,
-  Collapse,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   IconButton,
   MenuItem,
   Stack,
@@ -17,12 +20,15 @@ import {
   Tooltip,
   Typography
 } from "@mui/material";
+import AddRoundedIcon from "@mui/icons-material/AddRounded";
 import DeleteRoundedIcon from "@mui/icons-material/DeleteRounded";
 import EditRoundedIcon from "@mui/icons-material/EditRounded";
+import ShoppingCartRoundedIcon from "@mui/icons-material/ShoppingCartRounded";
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 
-import { createRoast, deleteRoast, fetchLots, fetchRoasts, updateRoast } from "../services/api";
-import type { CoffeeLot, RoastBatch } from "../types";
+import { createRoast, deleteRoast, fetchFarms, fetchLots, fetchRoasts, fetchVarieties, updateRoast } from "../services/api";
+import type { CoffeeLot, Farm, RoastBatch, Variety } from "../types";
 import ConfirmDialog from "../components/ConfirmDialog";
 import FilterPanel from "../components/FilterPanel";
 
@@ -35,8 +41,14 @@ const initialForm = {
   notes: ""
 };
 
+const MIN_AVAILABLE_GREEN_KG = 0.2;
+
 const RoastsPage = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [lots, setLots] = useState<CoffeeLot[]>([]);
+  const [farms, setFarms] = useState<Farm[]>([]);
+  const [varieties, setVarieties] = useState<Variety[]>([]);
   const [roasts, setRoasts] = useState<RoastBatch[]>([]);
   const [form, setForm] = useState(initialForm);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -50,19 +62,27 @@ const RoastsPage = () => {
     maxGreen: "",
     minRoasted: "",
     maxRoasted: "",
-    roastLevel: ""
+    roastLevel: "",
+    varietyId: ""
   });
   const [deleteTarget, setDeleteTarget] = useState<RoastBatch | null>(null);
   const [deleting, setDeleting] = useState(false);
-  const [formOpen, setFormOpen] = useState(true);
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   const loadData = useMemo(
     () =>
       async () => {
         try {
-          const [lotsRes, roastsRes] = await Promise.all([fetchLots(), fetchRoasts()]);
+          const [lotsRes, roastsRes, farmsRes, varietiesRes] = await Promise.all([
+            fetchLots(),
+            fetchRoasts(),
+            fetchFarms(),
+            fetchVarieties()
+          ]);
           setLots(lotsRes.data as CoffeeLot[]);
           setRoasts(roastsRes.data as RoastBatch[]);
+          setFarms(farmsRes.data as Farm[]);
+          setVarieties(varietiesRes.data as Variety[]);
         } catch (error) {
           console.error("Failed to load roasts", error);
         }
@@ -73,6 +93,14 @@ const RoastsPage = () => {
   useEffect(() => {
     void loadData();
   }, [loadData]);
+
+  useEffect(() => {
+    const state = location.state as { prefilters?: Partial<typeof filters> } | undefined;
+    if (state?.prefilters) {
+      setFilters((prev) => ({ ...prev, ...state.prefilters }));
+      navigate(location.pathname, { replace: true });
+    }
+  }, [location, navigate]);
 
   const getAvailableGreenKg = (lotId: number, ignoreRoastId: number | null) => {
     const lot = lots.find((candidate) => candidate.id === lotId);
@@ -97,6 +125,16 @@ const RoastsPage = () => {
     }
     return getAvailableGreenKg(Number(form.lot_id), editingId);
   }, [form.lot_id, editingId, lots, roasts]);
+
+  const lotOptions = useMemo(() => {
+    return lots.filter((lot) => {
+      const available = getAvailableGreenKg(lot.id, editingId);
+      if (editingId && Number(form.lot_id) === lot.id) {
+        return true;
+      }
+      return available >= MIN_AVAILABLE_GREEN_KG;
+    });
+  }, [editingId, form.lot_id, lots, roasts]);
 
   const filteredRoasts = useMemo(() => {
     return roasts.filter((roast) => {
@@ -136,9 +174,15 @@ const RoastsPage = () => {
       if (filters.roastLevel && !(roast.roast_level ?? "").toLowerCase().includes(filters.roastLevel.toLowerCase())) {
         return false;
       }
+      if (filters.varietyId) {
+        const lot = lots.find((candidate) => candidate.id === roast.lot_id);
+        if (!lot || String(lot.variety_id) !== filters.varietyId) {
+          return false;
+        }
+      }
       return true;
     });
-  }, [filters, roasts]);
+  }, [filters, roasts, lots]);
 
   const isFiltering = useMemo(
     () => Object.values(filters).some((value) => value.toString().trim() !== ""),
@@ -149,6 +193,16 @@ const RoastsPage = () => {
     setForm(initialForm);
     setEditingId(null);
     setErrors({});
+  };
+
+  const openCreateDialog = () => {
+    resetForm();
+    setDialogOpen(true);
+  };
+
+  const handleFilterChange = (field: keyof typeof filters) => (event: ChangeEvent<HTMLInputElement>) => {
+    const { value } = event.target;
+    setFilters((prev) => ({ ...prev, [field]: value.toString() }));
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -191,8 +245,9 @@ const RoastsPage = () => {
       } else {
         await createRoast(payload);
       }
-      resetForm();
       await loadData();
+      resetForm();
+      setDialogOpen(false);
     } catch (error) {
       console.error("Failed to save roast", error);
     } finally {
@@ -210,11 +265,7 @@ const RoastsPage = () => {
       roast_level: roast.roast_level ?? "",
       notes: roast.notes ?? ""
     });
-  };
-
-  const handleFilterChange = (field: keyof typeof filters) => (event: ChangeEvent<HTMLInputElement>) => {
-    const { value } = event.target;
-    setFilters((prev) => ({ ...prev, [field]: value.toString() }));
+    setDialogOpen(true);
   };
 
   const handleDeleteRequest = (roast: RoastBatch) => {
@@ -244,219 +295,222 @@ const RoastsPage = () => {
     }
   };
 
+  const handleDialogClose = () => {
+    if (saving) {
+      return;
+    }
+    setDialogOpen(false);
+    resetForm();
+  };
+
   return (
     <Stack spacing={4}>
-      <Card>
-        <CardHeader
-          title={editingId ? "Editar tostion" : "Registrar tostion"}
-          action={
-            <Button size="small" onClick={() => setFormOpen((prev) => !prev)}>
-              {formOpen ? "Ocultar" : "Mostrar"}
-            </Button>
-          }
-        />
-        <Collapse in={formOpen} timeout="auto" unmountOnExit>
-          <CardContent>
-            <Box component="form" display="flex" flexDirection="column" gap={2} onSubmit={handleSubmit}>
-              <TextField
-                select
-                label="Lote"
-                value={form.lot_id}
-                onChange={(e) => setForm((prev) => ({ ...prev, lot_id: e.target.value }))}
-                required
-              >
-                {lots.map((lot) => (
-                  <MenuItem key={lot.id} value={lot.id}>
-                    Lote #{lot.id} - {lot.process}
-                  </MenuItem>
-                ))}
-              </TextField>
-              <TextField
-                label="Fecha"
-                type="date"
-                InputLabelProps={{ shrink: true }}
-                value={form.roast_date}
-                onChange={(e) => setForm((prev) => ({ ...prev, roast_date: e.target.value }))}
-                required
-              />
-              <TextField
-                label="Kg verdes"
-                type="number"
-                value={form.green_input_kg}
-                onChange={(e) => setForm((prev) => ({ ...prev, green_input_kg: e.target.value }))}
-                error={Boolean(errors.green)}
-                helperText={
-                  errors.green ??
-                  (availableGreenForSelectedLot != null
-                    ? `Disponible: ${availableGreenForSelectedLot.toFixed(2)} kg`
-                    : undefined)
-                }
-                inputProps={{ min: 0, step: "0.01" }}
-                required
-              />
-              <TextField
-                label="Kg tostado"
-                type="number"
-                value={form.roasted_output_kg}
-                onChange={(e) => setForm((prev) => ({ ...prev, roasted_output_kg: e.target.value }))}
-                error={Boolean(errors.roasted)}
-                helperText={errors.roasted}
-                inputProps={{ min: 0, step: "0.01" }}
-                required
-              />
-              <TextField
-                label="Nivel de tueste"
-                value={form.roast_level}
-                onChange={(e) => setForm((prev) => ({ ...prev, roast_level: e.target.value }))}
-              />
-              <TextField
-                label="Notas"
-                value={form.notes}
-                onChange={(e) => setForm((prev) => ({ ...prev, notes: e.target.value }))}
-                multiline
-                rows={3}
-              />
-              <Box display="flex" gap={2}>
-                <Button type="submit" variant="contained" disabled={saving}>
-                  {editingId ? "Actualizar" : "Guardar tostion"}
-                </Button>
-                {editingId && (
-                  <Button variant="outlined" onClick={resetForm} disabled={saving}>
-                    Cancelar
-                  </Button>
-                )}
-              </Box>
-            </Box>
-          </CardContent>
-        </Collapse>
-      </Card>
       <Card sx={{ display: "flex", flexDirection: "column", flexGrow: 1 }}>
         <CardHeader
           title="Historial tostiones"
           subheader={`${filteredRoasts.length} de ${roasts.length} registros`}
+          action={
+            <Button startIcon={<AddRoundedIcon />} variant="contained" onClick={openCreateDialog}>
+              Nueva tostion
+            </Button>
+          }
         />
         <CardContent sx={{ flexGrow: 1, overflowX: "auto" }}>
-            <FilterPanel
-              isDirty={isFiltering}
-              onClear={() =>
-                setFilters({
-                  lotId: "",
-                  dateFrom: "",
-                  dateTo: "",
-                  minGreen: "",
-                  maxGreen: "",
-                  minRoasted: "",
-                  maxRoasted: "",
-                  roastLevel: ""
-                })
-              }
+          <FilterPanel
+            isDirty={isFiltering}
+            onClear={() =>
+              setFilters({
+                lotId: "",
+                dateFrom: "",
+                dateTo: "",
+                minGreen: "",
+                maxGreen: "",
+                minRoasted: "",
+                maxRoasted: "",
+                roastLevel: "",
+                varietyId: ""
+              })
+            }
+          >
+            <TextField
+              select
+              label="Lote"
+              value={filters.lotId}
+              onChange={handleFilterChange("lotId")}
             >
-              <TextField
-                select
-                label="Lote"
-                value={filters.lotId}
-                onChange={handleFilterChange("lotId")}
-              >
-                <MenuItem value="">Todos</MenuItem>
-                {lots.map((lot) => (
+              <MenuItem value="">Todos</MenuItem>
+              {lots.map((lot) => {
+                const varietyName = varieties.find((v) => v.id === lot.variety_id)?.name ?? "Variedad";
+                const farmName = farms.find((f) => f.id === lot.farm_id)?.name ?? "Finca";
+                return (
                   <MenuItem key={lot.id} value={String(lot.id)}>
-                    Lote #{lot.id}
-                  </MenuItem>
-                ))}
-              </TextField>
-              <TextField
-                label="Desde"
-                type="date"
-                InputLabelProps={{ shrink: true }}
-                value={filters.dateFrom}
-                onChange={handleFilterChange("dateFrom")}
-              />
-              <TextField
-                label="Hasta"
-                type="date"
-                InputLabelProps={{ shrink: true }}
-                value={filters.dateTo}
-                onChange={handleFilterChange("dateTo")}
-              />
-              <TextField
-                label="Kg verde min"
-                type="number"
-                value={filters.minGreen}
-                onChange={handleFilterChange("minGreen")}
-              />
-              <TextField
-                label="Kg verde max"
-                type="number"
-                value={filters.maxGreen}
-                onChange={handleFilterChange("maxGreen")}
-              />
-              <TextField
-                label="Kg tostado min"
-                type="number"
-                value={filters.minRoasted}
-                onChange={handleFilterChange("minRoasted")}
-              />
-              <TextField
-                label="Kg tostado max"
-                type="number"
-                value={filters.maxRoasted}
-                onChange={handleFilterChange("maxRoasted")}
-              />
-              <TextField
-                label="Nivel de tueste"
-                value={filters.roastLevel}
-                onChange={handleFilterChange("roastLevel")}
-                placeholder="Filtrar por nivel"
-              />
-            </FilterPanel>
-            <Table size="small" stickyHeader>
-              <TableHead>
-                <TableRow>
-                  <TableCell>Lote</TableCell>
-                  <TableCell>Fecha</TableCell>
-                  <TableCell align="right">Kg verdes</TableCell>
-                  <TableCell align="right">Kg tostado</TableCell>
-                  <TableCell align="right">Merma %</TableCell>
-                  <TableCell align="right">Acciones</TableCell>
-                </TableRow>
-                </TableHead>
-                <TableBody>
-                {filteredRoasts.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={6}>
-                      <Typography variant="body2" color="text.secondary">
-                        {isFiltering
-                          ? "No hay tostiones que coincidan con los filtros."
-                          : "No hay tostiones registradas."}
+                    <Box display="flex" flexDirection="column" alignItems="flex-start">
+                      <Typography variant="body2" fontWeight={600}>
+                        {`Lote #${lot.id} · ${varietyName}`}
                       </Typography>
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredRoasts.map((roast) => (
+                      <Typography variant="caption" color="text.secondary">
+                        {`${new Date(lot.purchase_date).toLocaleDateString()} · ${lot.process} · ${farmName}`}
+                      </Typography>
+                    </Box>
+                  </MenuItem>
+                );
+              })}
+            </TextField>
+            <TextField
+              label="Desde"
+              type="date"
+              InputLabelProps={{ shrink: true }}
+              value={filters.dateFrom}
+              onChange={handleFilterChange("dateFrom")}
+            />
+            <TextField
+              label="Hasta"
+              type="date"
+              InputLabelProps={{ shrink: true }}
+              value={filters.dateTo}
+              onChange={handleFilterChange("dateTo")}
+            />
+            <TextField
+              label="Kg verde min"
+              type="number"
+              value={filters.minGreen}
+              onChange={handleFilterChange("minGreen")}
+            />
+            <TextField
+              label="Kg verde max"
+              type="number"
+              value={filters.maxGreen}
+              onChange={handleFilterChange("maxGreen")}
+            />
+            <TextField
+              label="Kg tostado min"
+              type="number"
+              value={filters.minRoasted}
+              onChange={handleFilterChange("minRoasted")}
+            />
+            <TextField
+              label="Kg tostado max"
+              type="number"
+              value={filters.maxRoasted}
+              onChange={handleFilterChange("maxRoasted")}
+            />
+            <TextField
+              label="Nivel de tueste"
+              value={filters.roastLevel}
+              onChange={handleFilterChange("roastLevel")}
+              placeholder="Filtrar por nivel"
+            />
+            <TextField
+              select
+              label="Variedad"
+              value={filters.varietyId}
+              onChange={handleFilterChange("varietyId")}
+            >
+              <MenuItem value="">Todas</MenuItem>
+              {varieties.map((variety) => (
+                <MenuItem key={variety.id} value={String(variety.id)}>
+                  {variety.name}
+                </MenuItem>
+              ))}
+            </TextField>
+          </FilterPanel>
+          <Table size="small" stickyHeader>
+            <TableHead>
+              <TableRow>
+                <TableCell>Tostión</TableCell>
+                <TableCell>Origen</TableCell>
+                <TableCell align="right">Kg verdes</TableCell>
+                <TableCell align="right">Kg tostado</TableCell>
+                <TableCell align="right">Merma %</TableCell>
+                <TableCell align="right">Acciones</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {filteredRoasts.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6}>
+                    <Typography variant="body2" color="text.secondary">
+                      {isFiltering
+                        ? "No hay tostiones que coincidan con los filtros."
+                        : "No hay tostiones registradas."}
+                    </Typography>
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredRoasts.map((roast) => {
+                  const lot = lots.find((candidate) => candidate.id === roast.lot_id);
+                  const varietyName = lot
+                    ? varieties.find((variety) => variety.id === lot.variety_id)?.name ?? "Variedad desconocida"
+                    : "Variedad desconocida";
+                  const farmName = lot
+                    ? farms.find((farm) => farm.id === lot.farm_id)?.name ?? "Finca desconocida"
+                    : "Finca desconocida";
+                  const process = lot?.process ?? "Proceso N/D";
+                  const roastDate = new Date(roast.roast_date).toLocaleDateString();
+
+                  return (
                     <TableRow key={roast.id}>
-                      <TableCell>{roast.lot_id}</TableCell>
-                      <TableCell>{roast.roast_date}</TableCell>
+                      <TableCell>
+                        <Stack spacing={0.5}>
+                          <Typography variant="body2" fontWeight={600}>
+                            {`Roast #${roast.id}`}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {`Fecha ${roastDate}`}
+                          </Typography>
+                        </Stack>
+                      </TableCell>
+                      <TableCell>
+                        <Stack spacing={0.5}>
+                          <Typography variant="body2" fontWeight={600}>
+                            {varietyName}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {`${process} · ${farmName}`}
+                          </Typography>
+                          {lot ? (
+                            <Typography variant="caption" color="text.secondary">
+                              {`Compra ${new Date(lot.purchase_date).toLocaleDateString()}`}
+                            </Typography>
+                          ) : null}
+                        </Stack>
+                      </TableCell>
                       <TableCell align="right">{roast.green_input_kg.toFixed(2)}</TableCell>
                       <TableCell align="right">{roast.roasted_output_kg.toFixed(2)}</TableCell>
                       <TableCell align="right">{roast.shrinkage_pct.toFixed(2)}%</TableCell>
                       <TableCell align="right">
-                        <Tooltip title="Editar">
-                          <IconButton color="primary" onClick={() => handleEdit(roast)}>
-                            <EditRoundedIcon />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Eliminar">
-                          <IconButton color="error" onClick={() => handleDeleteRequest(roast)}>
-                            <DeleteRoundedIcon />
-                          </IconButton>
-                        </Tooltip>
+                        <Stack direction="row" spacing={1} justifyContent="flex-end">
+                          <Tooltip title="Ver ventas relacionadas">
+                            <IconButton
+                              size="small"
+                              onClick={() =>
+                                navigate("/sales", {
+                                  state: { prefilters: { roastId: String(roast.id) } }
+                                })
+                              }
+                            >
+                              <ShoppingCartRoundedIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Editar">
+                            <IconButton color="primary" size="small" onClick={() => handleEdit(roast)}>
+                              <EditRoundedIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Eliminar">
+                            <IconButton color="error" size="small" onClick={() => handleDeleteRequest(roast)}>
+                              <DeleteRoundedIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        </Stack>
                       </TableCell>
                     </TableRow>
-                  ))
-                )}
-                </TableBody>
-            </Table>
-          </CardContent>
+                  );
+                })
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
       </Card>
       <ConfirmDialog
         open={Boolean(deleteTarget)}
@@ -471,6 +525,94 @@ const RoastsPage = () => {
         confirmLabel="Eliminar"
         loading={deleting}
       />
+      <Dialog open={dialogOpen} onClose={handleDialogClose} fullWidth maxWidth="md">
+        <DialogTitle>{editingId ? "Editar tostion" : "Registrar tostion"}</DialogTitle>
+        <Box component="form" id="roast-form" onSubmit={handleSubmit} display="flex" flexDirection="column" gap={0}>
+          <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            <TextField
+              select
+              label="Lote"
+              value={form.lot_id}
+              onChange={(e) => setForm((prev) => ({ ...prev, lot_id: e.target.value }))}
+              required
+            >
+              {lotOptions.map((lot) => {
+                const farmName = farms.find((farm) => farm.id === lot.farm_id)?.name ?? "Finca desconocida";
+                const varietyName =
+                  varieties.find((variety) => variety.id === lot.variety_id)?.name ?? "Variedad desconocida";
+                const formattedDate = new Date(lot.purchase_date).toLocaleDateString();
+                const available = getAvailableGreenKg(lot.id, editingId);
+
+                return (
+                  <MenuItem key={lot.id} value={String(lot.id)}>
+                    <Box display="flex" flexDirection="column" alignItems="flex-start">
+                      <Typography variant="body2" fontWeight={600}>
+                        {`Lote #${lot.id} · ${varietyName}`}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {`${formattedDate} · ${lot.process} · ${farmName} · Disponible: ${available.toFixed(2)} kg`}
+                      </Typography>
+                    </Box>
+                  </MenuItem>
+                );
+              })}
+            </TextField>
+            <TextField
+              label="Fecha"
+              type="date"
+              InputLabelProps={{ shrink: true }}
+              value={form.roast_date}
+              onChange={(e) => setForm((prev) => ({ ...prev, roast_date: e.target.value }))}
+              required
+            />
+            <TextField
+              label="Kg verdes"
+              type="number"
+              value={form.green_input_kg}
+              onChange={(e) => setForm((prev) => ({ ...prev, green_input_kg: e.target.value }))}
+              error={Boolean(errors.green)}
+              helperText={
+                errors.green ??
+                (availableGreenForSelectedLot != null
+                  ? `Disponible: ${availableGreenForSelectedLot.toFixed(2)} kg`
+                  : undefined)
+              }
+              inputProps={{ min: 0, step: "0.01" }}
+              required
+            />
+            <TextField
+              label="Kg tostado"
+              type="number"
+              value={form.roasted_output_kg}
+              onChange={(e) => setForm((prev) => ({ ...prev, roasted_output_kg: e.target.value }))}
+              error={Boolean(errors.roasted)}
+              helperText={errors.roasted}
+              inputProps={{ min: 0, step: "0.01" }}
+              required
+            />
+            <TextField
+              label="Nivel de tueste"
+              value={form.roast_level}
+              onChange={(e) => setForm((prev) => ({ ...prev, roast_level: e.target.value }))}
+            />
+            <TextField
+              label="Notas"
+              value={form.notes}
+              onChange={(e) => setForm((prev) => ({ ...prev, notes: e.target.value }))}
+              multiline
+              rows={3}
+            />
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={handleDialogClose} disabled={saving}>
+              Cancelar
+            </Button>
+            <Button type="submit" variant="contained" disabled={saving}>
+              {editingId ? "Actualizar" : "Crear"}
+            </Button>
+          </DialogActions>
+        </Box>
+      </Dialog>
     </Stack>
   );
 };

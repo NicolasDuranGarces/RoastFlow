@@ -4,7 +4,10 @@ import {
   Card,
   CardContent,
   CardHeader,
-  Collapse,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   IconButton,
   Stack,
   Table,
@@ -16,6 +19,7 @@ import {
   Tooltip,
   Typography
 } from "@mui/material";
+import AddRoundedIcon from "@mui/icons-material/AddRounded";
 import DeleteRoundedIcon from "@mui/icons-material/DeleteRounded";
 import EditRoundedIcon from "@mui/icons-material/EditRounded";
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
@@ -35,7 +39,7 @@ const FarmsPage = () => {
   const [filters, setFilters] = useState({ name: "", location: "", notes: "" });
   const [deleteTarget, setDeleteTarget] = useState<Farm | null>(null);
   const [deleting, setDeleting] = useState(false);
-  const [formOpen, setFormOpen] = useState(true);
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   const loadFarms = useMemo(
     () =>
@@ -76,6 +80,11 @@ const FarmsPage = () => {
     setEditingId(null);
   };
 
+  const openCreateDialog = () => {
+    resetForm();
+    setDialogOpen(true);
+  };
+
   const handleFilterChange = (field: keyof typeof filters) => (event: ChangeEvent<HTMLInputElement>) => {
     const { value } = event.target;
     setFilters((prev) => ({ ...prev, [field]: value.toString() }));
@@ -90,8 +99,9 @@ const FarmsPage = () => {
       } else {
         await createFarm(form);
       }
-      resetForm();
       await loadFarms();
+      resetForm();
+      setDialogOpen(false);
     } catch (error) {
       console.error("Failed to save farm", error);
     } finally {
@@ -102,6 +112,7 @@ const FarmsPage = () => {
   const handleEdit = (farm: Farm) => {
     setEditingId(farm.id);
     setForm({ name: farm.name, location: farm.location ?? "", notes: farm.notes ?? "" });
+    setDialogOpen(true);
   };
 
   const handleDeleteRequest = (farm: Farm) => {
@@ -131,120 +142,88 @@ const FarmsPage = () => {
     }
   };
 
+  const handleDialogClose = () => {
+    if (saving) {
+      return;
+    }
+    setDialogOpen(false);
+    resetForm();
+  };
+
   return (
     <Stack spacing={4} sx={{ height: "100%" }}>
-      <Card>
-        <CardHeader
-          title={editingId ? "Editar finca" : "Registrar finca"}
-          subheader="Gestiona las fincas proveedoras"
-          action={
-            <Button size="small" onClick={() => setFormOpen((prev) => !prev)}>
-              {formOpen ? "Ocultar" : "Mostrar"}
-            </Button>
-          }
-        />
-        <Collapse in={formOpen} timeout="auto" unmountOnExit>
-          <CardContent>
-            <Box component="form" onSubmit={handleSubmit} display="flex" flexDirection="column" gap={2}>
-              <TextField
-                label="Nombre"
-                value={form.name}
-                onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
-                required
-              />
-              <TextField
-                label="Ubicacion"
-                value={form.location}
-                onChange={(event) => setForm((prev) => ({ ...prev, location: event.target.value }))}
-              />
-              <TextField
-                label="Notas"
-                value={form.notes}
-                onChange={(event) => setForm((prev) => ({ ...prev, notes: event.target.value }))}
-                multiline
-                minRows={3}
-              />
-              <Box display="flex" gap={2}>
-                <Button type="submit" variant="contained" disabled={saving}>
-                  {editingId ? "Actualizar" : "Crear"}
-                </Button>
-                {editingId && (
-                  <Button variant="outlined" onClick={resetForm} disabled={saving}>
-                    Cancelar
-                  </Button>
-                )}
-              </Box>
-            </Box>
-          </CardContent>
-        </Collapse>
-      </Card>
       <Card sx={{ flexGrow: 1, display: "flex", flexDirection: "column" }}>
         <CardHeader
           title="Fincas registradas"
           subheader={`${filteredFarms.length} de ${farms.length} registros`}
+          action={
+            <Button startIcon={<AddRoundedIcon />} variant="contained" onClick={openCreateDialog}>
+              Nueva finca
+            </Button>
+          }
         />
         <CardContent sx={{ flexGrow: 1, overflowX: "auto" }}>
-            <FilterPanel
-              isDirty={isFiltering}
-              onClear={() => setFilters({ name: "", location: "", notes: "" })}
-            >
-              <TextField
-                label="Nombre"
-                value={filters.name}
-                onChange={handleFilterChange("name")}
-                placeholder="Filtrar por nombre"
-              />
-              <TextField
-                label="Ubicacion"
-                value={filters.location}
-                onChange={handleFilterChange("location")}
-                placeholder="Filtrar por ubicacion"
-              />
-              <TextField
-                label="Notas"
-                value={filters.notes}
-                onChange={handleFilterChange("notes")}
-                placeholder="Filtrar por notas"
-              />
-            </FilterPanel>
-            {filteredFarms.length === 0 ? (
-              <Typography variant="body2" color="text.secondary">
-                {isFiltering ? "No hay fincas que coincidan con los filtros." : "No hay fincas registradas."}
-              </Typography>
-            ) : (
-              <Table size="small" stickyHeader>
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Nombre</TableCell>
-                    <TableCell>Ubicacion</TableCell>
-                    <TableCell>Notas</TableCell>
-                    <TableCell align="right">Acciones</TableCell>
+          <FilterPanel
+            isDirty={isFiltering}
+            onClear={() => setFilters({ name: "", location: "", notes: "" })}
+          >
+            <TextField
+              label="Nombre"
+              value={filters.name}
+              onChange={handleFilterChange("name")}
+              placeholder="Filtrar por nombre"
+            />
+            <TextField
+              label="Ubicacion"
+              value={filters.location}
+              onChange={handleFilterChange("location")}
+              placeholder="Filtrar por ubicacion"
+            />
+            <TextField
+              label="Notas"
+              value={filters.notes}
+              onChange={handleFilterChange("notes")}
+              placeholder="Filtrar por notas"
+            />
+          </FilterPanel>
+          {filteredFarms.length === 0 ? (
+            <Typography variant="body2" color="text.secondary">
+              {isFiltering ? "No hay fincas que coincidan con los filtros." : "No hay fincas registradas."}
+            </Typography>
+          ) : (
+            <Table size="small" stickyHeader>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Nombre</TableCell>
+                  <TableCell>Ubicacion</TableCell>
+                  <TableCell>Notas</TableCell>
+                  <TableCell align="right">Acciones</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {filteredFarms.map((farm) => (
+                  <TableRow key={farm.id} hover>
+                    <TableCell>{farm.name}</TableCell>
+                    <TableCell>{farm.location}</TableCell>
+                    <TableCell>{farm.notes}</TableCell>
+                    <TableCell align="right">
+                      <Tooltip title="Editar">
+                        <IconButton color="primary" onClick={() => handleEdit(farm)}>
+                          <EditRoundedIcon />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Eliminar">
+                        <IconButton color="error" onClick={() => handleDeleteRequest(farm)}>
+                          <DeleteRoundedIcon />
+                        </IconButton>
+                      </Tooltip>
+                    </TableCell>
                   </TableRow>
-                </TableHead>
-                <TableBody>
-                  {filteredFarms.map((farm) => (
-                    <TableRow key={farm.id} hover>
-                      <TableCell>{farm.name}</TableCell>
-                      <TableCell>{farm.location}</TableCell>
-                      <TableCell>{farm.notes}</TableCell>
-                      <TableCell align="right">
-                        <Tooltip title="Editar">
-                          <IconButton color="primary" onClick={() => handleEdit(farm)}>
-                            <EditRoundedIcon />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Eliminar">
-                          <IconButton color="error" onClick={() => handleDeleteRequest(farm)}>
-                            <DeleteRoundedIcon />
-                          </IconButton>
-                        </Tooltip>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
       </Card>
       <ConfirmDialog
         open={Boolean(deleteTarget)}
@@ -257,6 +236,40 @@ const FarmsPage = () => {
         confirmLabel="Eliminar"
         loading={deleting}
       />
+      <Dialog open={dialogOpen} onClose={handleDialogClose} fullWidth maxWidth="sm">
+        <DialogTitle>{editingId ? "Editar finca" : "Registrar finca"}</DialogTitle>
+        <Box component="form" id="farm-form" onSubmit={handleSubmit} display="flex" flexDirection="column" gap={0}>
+          <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            <TextField
+              label="Nombre"
+              value={form.name}
+              onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
+              required
+              autoFocus
+            />
+            <TextField
+              label="Ubicacion"
+              value={form.location}
+              onChange={(event) => setForm((prev) => ({ ...prev, location: event.target.value }))}
+            />
+            <TextField
+              label="Notas"
+              value={form.notes}
+              onChange={(event) => setForm((prev) => ({ ...prev, notes: event.target.value }))}
+              multiline
+              minRows={3}
+            />
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={handleDialogClose} disabled={saving}>
+              Cancelar
+            </Button>
+            <Button type="submit" variant="contained" disabled={saving}>
+              {editingId ? "Actualizar" : "Crear"}
+            </Button>
+          </DialogActions>
+        </Box>
+      </Dialog>
     </Stack>
   );
 };

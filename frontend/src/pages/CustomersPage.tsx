@@ -4,7 +4,10 @@ import {
   Card,
   CardContent,
   CardHeader,
-  Collapse,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   IconButton,
   Stack,
   Table,
@@ -16,6 +19,7 @@ import {
   Tooltip,
   Typography
 } from "@mui/material";
+import AddRoundedIcon from "@mui/icons-material/AddRounded";
 import DeleteRoundedIcon from "@mui/icons-material/DeleteRounded";
 import EditRoundedIcon from "@mui/icons-material/EditRounded";
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
@@ -35,7 +39,7 @@ const CustomersPage = () => {
   const [filters, setFilters] = useState({ name: "", contact: "" });
   const [deleteTarget, setDeleteTarget] = useState<Customer | null>(null);
   const [deleting, setDeleting] = useState(false);
-  const [formOpen, setFormOpen] = useState(true);
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   const loadCustomers = useMemo(
     () =>
@@ -74,6 +78,11 @@ const CustomersPage = () => {
     setEditingId(null);
   };
 
+  const openCreateDialog = () => {
+    resetForm();
+    setDialogOpen(true);
+  };
+
   const handleFilterChange = (field: keyof typeof filters) => (event: ChangeEvent<HTMLInputElement>) => {
     const { value } = event.target;
     setFilters((prev) => ({ ...prev, [field]: value.toString() }));
@@ -88,8 +97,9 @@ const CustomersPage = () => {
       } else {
         await createCustomer(form);
       }
-      resetForm();
       await loadCustomers();
+      resetForm();
+      setDialogOpen(false);
     } catch (error) {
       console.error("Failed to save customer", error);
     } finally {
@@ -100,6 +110,7 @@ const CustomersPage = () => {
   const handleEdit = (customer: Customer) => {
     setEditingId(customer.id);
     setForm({ name: customer.name, contact_info: customer.contact_info ?? "" });
+    setDialogOpen(true);
   };
 
   const handleDeleteRequest = (customer: Customer) => {
@@ -129,106 +140,82 @@ const CustomersPage = () => {
     }
   };
 
+  const handleDialogClose = () => {
+    if (saving) {
+      return;
+    }
+    setDialogOpen(false);
+    resetForm();
+  };
+
   return (
     <Stack spacing={4}>
-      <Card>
-        <CardHeader
-          title={editingId ? "Editar cliente" : "Registrar cliente"}
-          action={
-            <Button size="small" onClick={() => setFormOpen((prev) => !prev)}>
-              {formOpen ? "Ocultar" : "Mostrar"}
-            </Button>
-          }
-        />
-        <Collapse in={formOpen} timeout="auto" unmountOnExit>
-          <CardContent>
-            <Box component="form" display="flex" flexDirection="column" gap={2} onSubmit={handleSubmit}>
-              <TextField
-                label="Nombre"
-                value={form.name}
-                onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
-                required
-              />
-              <TextField
-                label="Contacto"
-                value={form.contact_info}
-                onChange={(e) => setForm((prev) => ({ ...prev, contact_info: e.target.value }))}
-              />
-              <Box display="flex" gap={2}>
-                <Button type="submit" variant="contained" disabled={saving}>
-                  {editingId ? "Actualizar" : "Guardar cliente"}
-                </Button>
-                {editingId && (
-                  <Button variant="outlined" onClick={resetForm} disabled={saving}>
-                    Cancelar
-                  </Button>
-                )}
-              </Box>
-            </Box>
-          </CardContent>
-        </Collapse>
-      </Card>
-      <Card sx={{ display: "flex", flexDirection: "column", flexGrow: 1 }}>
+      <Card sx={{ flexGrow: 1, display: "flex", flexDirection: "column" }}>
         <CardHeader
           title="Clientes registrados"
           subheader={`${filteredCustomers.length} de ${customers.length} registros`}
+          action={
+            <Button startIcon={<AddRoundedIcon />} variant="contained" onClick={openCreateDialog}>
+              Nuevo cliente
+            </Button>
+          }
         />
         <CardContent sx={{ flexGrow: 1, overflowX: "auto" }}>
-            <FilterPanel
-              isDirty={isFiltering}
-              onClear={() => setFilters({ name: "", contact: "" })}
-            >
-              <TextField
-                label="Nombre"
-                value={filters.name}
-                onChange={handleFilterChange("name")}
-                placeholder="Filtrar por nombre"
-              />
-              <TextField
-                label="Contacto"
-                value={filters.contact}
-                onChange={handleFilterChange("contact")}
-                placeholder="Filtrar por contacto"
-              />
-            </FilterPanel>
-            {filteredCustomers.length === 0 ? (
-              <Typography variant="body2" color="text.secondary">
-                {isFiltering
-                  ? "No hay clientes que coincidan con los filtros."
-                  : "No hay clientes registrados."}
-              </Typography>
-            ) : (
-              <Table size="small" stickyHeader>
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Nombre</TableCell>
-                    <TableCell>Contacto</TableCell>
-                    <TableCell align="right">Acciones</TableCell>
+          <FilterPanel
+            isDirty={isFiltering}
+            onClear={() => setFilters({ name: "", contact: "" })}
+          >
+            <TextField
+              label="Nombre"
+              value={filters.name}
+              onChange={handleFilterChange("name")}
+              placeholder="Filtrar por nombre"
+            />
+            <TextField
+              label="Contacto"
+              value={filters.contact}
+              onChange={handleFilterChange("contact")}
+              placeholder="Filtrar por contacto"
+            />
+          </FilterPanel>
+          {filteredCustomers.length === 0 ? (
+            <Typography variant="body2" color="text.secondary">
+              {isFiltering
+                ? "No hay clientes que coincidan con los filtros."
+                : "No hay clientes registrados."}
+            </Typography>
+          ) : (
+            <Table size="small" stickyHeader>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Nombre</TableCell>
+                  <TableCell>Contacto</TableCell>
+                  <TableCell align="right">Acciones</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {filteredCustomers.map((customer) => (
+                  <TableRow key={customer.id} hover>
+                    <TableCell>{customer.name}</TableCell>
+                    <TableCell>{customer.contact_info}</TableCell>
+                    <TableCell align="right">
+                      <Tooltip title="Editar">
+                        <IconButton color="primary" onClick={() => handleEdit(customer)}>
+                          <EditRoundedIcon />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Eliminar">
+                        <IconButton color="error" onClick={() => handleDeleteRequest(customer)}>
+                          <DeleteRoundedIcon />
+                        </IconButton>
+                      </Tooltip>
+                    </TableCell>
                   </TableRow>
-                </TableHead>
-                <TableBody>
-                  {filteredCustomers.map((customer) => (
-                    <TableRow key={customer.id}>
-                      <TableCell>{customer.name}</TableCell>
-                      <TableCell>{customer.contact_info}</TableCell>
-                      <TableCell align="right">
-                        <Tooltip title="Editar">
-                          <IconButton color="primary" onClick={() => handleEdit(customer)}>
-                            <EditRoundedIcon />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Eliminar">
-                          <IconButton color="error" onClick={() => handleDeleteRequest(customer)}>
-                            <DeleteRoundedIcon />
-                          </IconButton>
-                        </Tooltip>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
       </Card>
       <ConfirmDialog
         open={Boolean(deleteTarget)}
@@ -243,6 +230,33 @@ const CustomersPage = () => {
         confirmLabel="Eliminar"
         loading={deleting}
       />
+      <Dialog open={dialogOpen} onClose={handleDialogClose} fullWidth maxWidth="sm">
+        <DialogTitle>{editingId ? "Editar cliente" : "Registrar cliente"}</DialogTitle>
+        <Box component="form" id="customer-form" onSubmit={handleSubmit} display="flex" flexDirection="column" gap={0}>
+          <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            <TextField
+              label="Nombre"
+              value={form.name}
+              onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
+              required
+              autoFocus
+            />
+            <TextField
+              label="Contacto"
+              value={form.contact_info}
+              onChange={(event) => setForm((prev) => ({ ...prev, contact_info: event.target.value }))}
+            />
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={handleDialogClose} disabled={saving}>
+              Cancelar
+            </Button>
+            <Button type="submit" variant="contained" disabled={saving}>
+              {editingId ? "Actualizar" : "Crear"}
+            </Button>
+          </DialogActions>
+        </Box>
+      </Dialog>
     </Stack>
   );
 };

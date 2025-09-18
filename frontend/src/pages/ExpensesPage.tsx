@@ -4,7 +4,10 @@ import {
   Card,
   CardContent,
   CardHeader,
-  Collapse,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   IconButton,
   Stack,
   Table,
@@ -15,6 +18,7 @@ import {
   TextField,
   Tooltip
 } from "@mui/material";
+import AddRoundedIcon from "@mui/icons-material/AddRounded";
 import DeleteRoundedIcon from "@mui/icons-material/DeleteRounded";
 import EditRoundedIcon from "@mui/icons-material/EditRounded";
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
@@ -45,7 +49,7 @@ const ExpensesPage = () => {
   });
   const [deleteTarget, setDeleteTarget] = useState<Expense | null>(null);
   const [deleting, setDeleting] = useState(false);
-  const [formOpen, setFormOpen] = useState(true);
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   const loadExpenses = useMemo(
     () =>
@@ -101,6 +105,11 @@ const ExpensesPage = () => {
     setEditingId(null);
   };
 
+  const openCreateDialog = () => {
+    resetForm();
+    setDialogOpen(true);
+  };
+
   const handleFilterChange = (field: keyof typeof filters) => (event: ChangeEvent<HTMLInputElement>) => {
     const { value } = event.target;
     setFilters((prev) => ({ ...prev, [field]: value.toString() }));
@@ -121,8 +130,9 @@ const ExpensesPage = () => {
       } else {
         await createExpense(payload);
       }
-      resetForm();
       await loadExpenses();
+      resetForm();
+      setDialogOpen(false);
     } catch (error) {
       console.error("Failed to save expense", error);
     } finally {
@@ -138,6 +148,7 @@ const ExpensesPage = () => {
       amount: String(expense.amount),
       notes: expense.notes ?? ""
     });
+    setDialogOpen(true);
   };
 
   const handleDeleteRequest = (expense: Expense) => {
@@ -167,149 +178,108 @@ const ExpensesPage = () => {
     }
   };
 
+  const handleDialogClose = () => {
+    if (saving) {
+      return;
+    }
+    setDialogOpen(false);
+    resetForm();
+  };
+
   return (
     <Stack spacing={4}>
-      <Card>
-        <CardHeader
-          title={editingId ? "Editar gasto" : "Registrar gasto"}
-          action={
-            <Button size="small" onClick={() => setFormOpen((prev) => !prev)}>
-              {formOpen ? "Ocultar" : "Mostrar"}
-            </Button>
-          }
-        />
-        <Collapse in={formOpen} timeout="auto" unmountOnExit>
-          <CardContent>
-            <Box component="form" display="flex" flexDirection="column" gap={2} onSubmit={handleSubmit}>
-              <TextField
-                label="Fecha"
-                type="date"
-                InputLabelProps={{ shrink: true }}
-                value={form.expense_date}
-                onChange={(e) => setForm((prev) => ({ ...prev, expense_date: e.target.value }))}
-                required
-              />
-              <TextField
-                label="Categoria"
-                value={form.category}
-                onChange={(e) => setForm((prev) => ({ ...prev, category: e.target.value }))}
-                required
-              />
-              <TextField
-                label="Monto"
-                type="number"
-                value={form.amount}
-                onChange={(e) => setForm((prev) => ({ ...prev, amount: e.target.value }))}
-                required
-              />
-              <TextField
-                label="Notas"
-                value={form.notes}
-                onChange={(e) => setForm((prev) => ({ ...prev, notes: e.target.value }))}
-                multiline
-                minRows={3}
-              />
-              <Box display="flex" gap={2}>
-                <Button type="submit" variant="contained" disabled={saving}>
-                  {editingId ? "Actualizar" : "Guardar gasto"}
-                </Button>
-                {editingId && (
-                  <Button variant="outlined" onClick={resetForm} disabled={saving}>
-                    Cancelar
-                  </Button>
-                )}
-              </Box>
-            </Box>
-          </CardContent>
-        </Collapse>
-      </Card>
       <Card sx={{ display: "flex", flexDirection: "column", flexGrow: 1 }}>
         <CardHeader
           title="Historial de gastos"
           subheader={`${filteredExpenses.length} de ${expenses.length} registros`}
+          action={
+            <Button startIcon={<AddRoundedIcon />} variant="contained" onClick={openCreateDialog}>
+              Nuevo gasto
+            </Button>
+          }
         />
         <CardContent sx={{ flexGrow: 1, overflowX: "auto" }}>
-            <FilterPanel
-              isDirty={isFiltering}
-              onClear={() => setFilters({ category: "", dateFrom: "", dateTo: "", minAmount: "", maxAmount: "" })}
-            >
-              <TextField
-                label="Categoria"
-                value={filters.category}
-                onChange={handleFilterChange("category")}
-                placeholder="Buscar categoria"
-              />
-              <TextField
-                label="Desde"
-                type="date"
-                InputLabelProps={{ shrink: true }}
-                value={filters.dateFrom}
-                onChange={handleFilterChange("dateFrom")}
-              />
-              <TextField
-                label="Hasta"
-                type="date"
-                InputLabelProps={{ shrink: true }}
-                value={filters.dateTo}
-                onChange={handleFilterChange("dateTo")}
-              />
-              <TextField
-                label="Monto minimo"
-                type="number"
-                value={filters.minAmount}
-                onChange={handleFilterChange("minAmount")}
-              />
-              <TextField
-                label="Monto maximo"
-                type="number"
-                value={filters.maxAmount}
-                onChange={handleFilterChange("maxAmount")}
-              />
-            </FilterPanel>
-            <Table size="small" stickyHeader>
-              <TableHead>
+          <FilterPanel
+            isDirty={isFiltering}
+            onClear={() => setFilters({ category: "", dateFrom: "", dateTo: "", minAmount: "", maxAmount: "" })}
+          >
+            <TextField
+              label="Categoria"
+              value={filters.category}
+              onChange={handleFilterChange("category")}
+              placeholder="Buscar categoria"
+            />
+            <TextField
+              label="Desde"
+              type="date"
+              InputLabelProps={{ shrink: true }}
+              value={filters.dateFrom}
+              onChange={handleFilterChange("dateFrom")}
+            />
+            <TextField
+              label="Hasta"
+              type="date"
+              InputLabelProps={{ shrink: true }}
+              value={filters.dateTo}
+              onChange={handleFilterChange("dateTo")}
+            />
+            <TextField
+              label="Monto minimo"
+              type="number"
+              value={filters.minAmount}
+              onChange={handleFilterChange("minAmount")}
+            />
+            <TextField
+              label="Monto maximo"
+              type="number"
+              value={filters.maxAmount}
+              onChange={handleFilterChange("maxAmount")}
+            />
+          </FilterPanel>
+          <Table size="small" stickyHeader>
+            <TableHead>
+              <TableRow>
+                <TableCell>Fecha</TableCell>
+                <TableCell>Categoria</TableCell>
+                <TableCell align="right">Monto</TableCell>
+                <TableCell>Notas</TableCell>
+                <TableCell align="right">Acciones</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {filteredExpenses.length === 0 ? (
                 <TableRow>
-                  <TableCell>Fecha</TableCell>
-                  <TableCell>Categoria</TableCell>
-                  <TableCell align="right">Monto</TableCell>
-                  <TableCell>Notas</TableCell>
-                  <TableCell align="right">Acciones</TableCell>
+                  <TableCell colSpan={5}>
+                    {isFiltering
+                      ? "No hay gastos que coincidan con los filtros."
+                      : "No hay gastos registrados."}
+                  </TableCell>
                 </TableRow>
-              </TableHead>
-              <TableBody>
-                {filteredExpenses.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={5}>
-                      {isFiltering
-                        ? "No hay gastos que coincidan con los filtros."
-                        : "No hay gastos registrados."}
+              ) : (
+                filteredExpenses.map((expense) => (
+                  <TableRow key={expense.id}>
+                    <TableCell>{expense.expense_date}</TableCell>
+                    <TableCell>{expense.category}</TableCell>
+                    <TableCell align="right">${expense.amount.toFixed(2)}</TableCell>
+                    <TableCell>{expense.notes}</TableCell>
+                    <TableCell align="right">
+                      <Tooltip title="Editar">
+                        <IconButton color="primary" onClick={() => handleEdit(expense)}>
+                          <EditRoundedIcon />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Eliminar">
+                        <IconButton color="error" onClick={() => handleDeleteRequest(expense)}>
+                          <DeleteRoundedIcon />
+                        </IconButton>
+                      </Tooltip>
                     </TableCell>
                   </TableRow>
-                ) : (
-                  filteredExpenses.map((expense) => (
-                    <TableRow key={expense.id}>
-                      <TableCell>{expense.expense_date}</TableCell>
-                      <TableCell>{expense.category}</TableCell>
-                      <TableCell align="right">${expense.amount.toFixed(2)}</TableCell>
-                      <TableCell>{expense.notes}</TableCell>
-                      <TableCell align="right">
-                        <Tooltip title="Editar">
-                          <IconButton color="primary" onClick={() => handleEdit(expense)}>
-                            <EditRoundedIcon />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Eliminar">
-                          <IconButton color="error" onClick={() => handleDeleteRequest(expense)}>
-                            <DeleteRoundedIcon />
-                          </IconButton>
-                        </Tooltip>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </CardContent>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
       </Card>
       <ConfirmDialog
         open={Boolean(deleteTarget)}
@@ -324,6 +294,49 @@ const ExpensesPage = () => {
         confirmLabel="Eliminar"
         loading={deleting}
       />
+      <Dialog open={dialogOpen} onClose={handleDialogClose} fullWidth maxWidth="sm">
+        <DialogTitle>{editingId ? "Editar gasto" : "Registrar gasto"}</DialogTitle>
+        <Box component="form" id="expense-form" onSubmit={handleSubmit} display="flex" flexDirection="column" gap={0}>
+          <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            <TextField
+              label="Fecha"
+              type="date"
+              InputLabelProps={{ shrink: true }}
+              value={form.expense_date}
+              onChange={(e) => setForm((prev) => ({ ...prev, expense_date: e.target.value }))}
+              required
+            />
+            <TextField
+              label="Categoria"
+              value={form.category}
+              onChange={(e) => setForm((prev) => ({ ...prev, category: e.target.value }))}
+              required
+            />
+            <TextField
+              label="Monto"
+              type="number"
+              value={form.amount}
+              onChange={(e) => setForm((prev) => ({ ...prev, amount: e.target.value }))}
+              required
+            />
+            <TextField
+              label="Notas"
+              value={form.notes}
+              onChange={(e) => setForm((prev) => ({ ...prev, notes: e.target.value }))}
+              multiline
+              minRows={3}
+            />
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={handleDialogClose} disabled={saving}>
+              Cancelar
+            </Button>
+            <Button type="submit" variant="contained" disabled={saving}>
+              {editingId ? "Actualizar" : "Crear"}
+            </Button>
+          </DialogActions>
+        </Box>
+      </Dialog>
     </Stack>
   );
 };
