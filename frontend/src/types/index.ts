@@ -77,11 +77,16 @@ export interface FinancialSummary {
   total_expenses: number;
   purchase_costs: number;
   net_profit: number;
+  total_quantity_sold: number;
+  average_price_per_kg: number;
+  projected_full_sale_value: number;
+  projected_half_sale_value: number;
 }
 
 export interface RoastSummary {
   total_green_purchased: number;
   total_roasted_produced: number;
+  total_roasted_sold: number;
 }
 
 export interface DashboardSummary {
