@@ -148,7 +148,7 @@ const DashboardPage = () => {
           </Grid>
         </Grid>
       </Grid>
-      <Grid item xs={12} lg={8}>
+      <Grid item xs={12} lg={4}>
         <Card>
           <CardHeader
             title="Salud financiera"
@@ -207,61 +207,6 @@ const DashboardPage = () => {
                   </Stack>
                 </Stack>
               </Grid>
-              <Grid item xs={12} md={6}>
-                <Card variant="outlined" sx={{ height: "100%" }}>
-                  <CardHeader title="Proyección de inventario" />
-                  <CardContent>
-                    <Stack spacing={1}>
-                      <Typography variant="body2" color="text.secondary">
-                        Inventario tostado disponible: {formatKg(projections.roastedAvailable)}
-                      </Typography>
-                      <Box>
-                        <Stack direction="row" spacing={1} alignItems="center" mb={1}>
-                          <Chip
-                            label="25%"
-                            onClick={() => setProjectionPercent(25)}
-                            variant={projectionPercent === 25 ? "filled" : "outlined"}
-                          />
-                          <Chip
-                            label="50%"
-                            onClick={() => setProjectionPercent(50)}
-                            variant={projectionPercent === 50 ? "filled" : "outlined"}
-                          />
-                          <Chip
-                            label="75%"
-                            onClick={() => setProjectionPercent(75)}
-                            variant={projectionPercent === 75 ? "filled" : "outlined"}
-                          />
-                          <Chip
-                            label="100%"
-                            onClick={() => setProjectionPercent(100)}
-                            variant={projectionPercent === 100 ? "filled" : "outlined"}
-                          />
-                        </Stack>
-                        <Slider
-                          value={projectionPercent}
-                          onChange={(_, value) => setProjectionPercent(value as number)}
-                          min={0}
-                          max={100}
-                          step={5}
-                          valueLabelDisplay="auto"
-                        />
-                      </Box>
-                      <Typography variant="body1">
-                        Proyección {projectionPercent}%: <strong>{formatCurrency(dynamicProjection.value)}</strong>
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        Equivale a {formatKg(dynamicProjection.kilos)} a precio promedio
-                      </Typography>
-                      <Divider sx={{ my: 1 }} />
-                      <Typography variant="body2" color="text.secondary">
-                        Vender todo: {formatCurrency(projections.fullValue)} · Vender 50%: {" "}
-                        {formatCurrency(projections.halfValue)}
-                      </Typography>
-                    </Stack>
-                  </CardContent>
-                </Card>
-              </Grid>
             </Grid>
           </CardContent>
         </Card>
@@ -308,6 +253,58 @@ const DashboardPage = () => {
                   sx={{ mt: 1, borderRadius: 2, height: 8 }}
                 />
               </Box>
+            </Stack>
+          </CardContent>
+        </Card>
+      </Grid>
+
+      <Grid item xs={12} lg={4}>
+        <Card>
+          <CardHeader title="Proyección de inventario" subheader="Escenarios sobre el tostado disponible" />
+          <CardContent>
+            <Stack spacing={2}>
+              <Box>
+                <Stack direction="row" spacing={1} alignItems="center" mb={1}>
+                  {[25, 50, 75, 100].map((preset) => (
+                    <Chip
+                      key={preset}
+                      label={`${preset}%`}
+                      onClick={() => setProjectionPercent(preset)}
+                      variant={projectionPercent === preset ? "filled" : "outlined"}
+                    />
+                  ))}
+                </Stack>
+                <Slider
+                  value={projectionPercent}
+                  onChange={(_, value) => setProjectionPercent(value as number)}
+                  min={0}
+                  max={100}
+                  step={5}
+                  valueLabelDisplay="auto"
+                  sx={{ mt: 1 }}
+                />
+              </Box>
+              <Stack spacing={0.5}>
+                <Typography variant="overline">Inventario tostado disponible</Typography>
+                <Typography variant="h5">{formatKg(projections.roastedAvailable)}</Typography>
+              </Stack>
+              <Stack spacing={0.5}>
+                <Typography variant="overline">Proyección {projectionPercent}%</Typography>
+                <Typography variant="h4">{formatCurrency(dynamicProjection.value)}</Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Equivale a {formatKg(dynamicProjection.kilos)} vendidos al precio promedio
+                </Typography>
+              </Stack>
+              <Divider />
+              <Stack spacing={0.5}>
+                <Typography variant="overline">Escenarios rápidos</Typography>
+                <Typography variant="body2">
+                  Vender todo: <strong>{formatCurrency(projections.fullValue)}</strong>
+                </Typography>
+                <Typography variant="body2">
+                  Vender 50%: <strong>{formatCurrency(projections.halfValue)}</strong>
+                </Typography>
+              </Stack>
             </Stack>
           </CardContent>
         </Card>
