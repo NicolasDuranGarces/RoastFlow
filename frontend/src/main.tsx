@@ -52,6 +52,15 @@ const theme = createTheme({
         }
       }
     },
+    MuiCard: {
+      styleOverrides: {
+        root: ({ theme }) => ({
+          borderRadius: 16,
+          boxShadow: "0 18px 42px rgba(15, 23, 42, 0.08)",
+          border: `1px solid ${alpha(theme.palette.primary.main, 0.04)}`
+        })
+      }
+    },
     MuiOutlinedInput: {
       styleOverrides: {
         root: ({ theme }) => ({
@@ -150,6 +159,14 @@ const theme = createTheme({
         root: ({ theme }) => ({
           borderBottom: `1px solid ${alpha(theme.palette.primary.main, 0.08)}`
         })
+      }
+    },
+    MuiDialog: {
+      styleOverrides: {
+        paper: {
+          borderRadius: 18,
+          boxShadow: "0 32px 80px rgba(15, 23, 42, 0.2)"
+        }
       }
     }
   }

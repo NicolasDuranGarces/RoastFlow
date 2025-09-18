@@ -310,6 +310,46 @@ const DashboardPage = () => {
         </Card>
       </Grid>
 
+      <Grid item xs={12} lg={4}>
+        <Card>
+          <CardHeader title="Insights operativos" subheader="Indicadores derivados de las ventas" />
+          <CardContent>
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={6}>
+                <Stack spacing={0.5}>
+                  <Typography variant="overline">Kg vendidos</Typography>
+                  <Typography variant="h5">{formatKg(financials.total_quantity_sold)}</Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    Total acumulado de café tostado comercializado
+                  </Typography>
+                </Stack>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <Stack spacing={0.5}>
+                  <Typography variant="overline">Ingreso promedio</Typography>
+                  <Typography variant="h5">{formatCurrency(financials.average_price_per_kg)}</Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    Precio medio por kilogramo vendido
+                  </Typography>
+                </Stack>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <Stack spacing={0.5}>
+                  <Typography variant="overline">Proyección 100%</Typography>
+                  <Typography variant="subtitle1">{formatCurrency(projections.fullValue)}</Typography>
+                </Stack>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <Stack spacing={0.5}>
+                  <Typography variant="overline">Inventario proyectado</Typography>
+                  <Typography variant="subtitle1">{formatKg(projections.roastedAvailable)}</Typography>
+                </Stack>
+              </Grid>
+            </Grid>
+          </CardContent>
+        </Card>
+      </Grid>
+
       <Grid item xs={12}>
         <Card>
           <CardHeader title="Producción" subheader="Histórico acumulado" />

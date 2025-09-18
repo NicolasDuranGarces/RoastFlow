@@ -1,4 +1,5 @@
 import {
+  Avatar,
   Box,
   Button,
   Divider,
@@ -7,6 +8,7 @@ import {
   ListItemButton,
   ListItemIcon,
   ListItemText,
+  Stack,
   Typography
 } from "@mui/material";
 import DashboardRoundedIcon from "@mui/icons-material/DashboardRounded";
@@ -18,6 +20,7 @@ import ShoppingCartRoundedIcon from "@mui/icons-material/ShoppingCartRounded";
 import AccountBalanceWalletRoundedIcon from "@mui/icons-material/AccountBalanceWalletRounded";
 import GroupsRoundedIcon from "@mui/icons-material/GroupsRounded";
 import ManageAccountsRoundedIcon from "@mui/icons-material/ManageAccountsRounded";
+import LogoutRoundedIcon from "@mui/icons-material/LogoutRounded";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 
 import { useAuth } from "../hooks/useAuth";
@@ -36,9 +39,25 @@ const navItems = [
   { label: "Gastos", to: "/expenses", icon: <AccountBalanceWalletRoundedIcon /> }
 ];
 
+const sectionDescriptions: Record<string, string> = {
+  Dashboard: "Resumen ejecutivo del negocio",
+  Fincas: "Gestiona las fincas proveedoras",
+  Variedades: "Control de variedades y procesos",
+  Lotes: "Compras de café verde y su trazabilidad",
+  Tostiones: "Historial y registro de tostiones",
+  Ventas: "Seguimiento comercial y facturación",
+  Clientes: "Directorio y relaciones comerciales",
+  Usuarios: "Administración de cuentas internas",
+  Gastos: "Control de egresos operativos"
+};
+
 const MainLayout = () => {
   const location = useLocation();
   const { logout, user } = useAuth();
+
+  const currentNav = navItems.find((item) =>
+    item.to === "/" ? location.pathname === "/" : location.pathname.startsWith(item.to)
+  );
 
   return (
     <Box sx={{ display: "flex", minHeight: "100vh", bgcolor: "background.default" }}>
@@ -50,45 +69,47 @@ const MainLayout = () => {
           '& .MuiDrawer-paper': {
             width: drawerWidth,
             boxSizing: "border-box",
-            borderRight: "none",
-            borderRadius: 0,
-            backgroundImage: "linear-gradient(180deg, rgba(31, 26, 56, 0.98) 0%, rgba(36, 28, 70, 0.95) 100%)",
-            color: "#fff",
+            borderRight: 0,
+            background: "linear-gradient(180deg, #101827 0%, #172036 100%)",
+            color: "#f9fafb",
             display: "flex",
             flexDirection: "column",
-            padding: 0
+            px: 2.5,
+            py: 3,
+            gap: 3
           }
         }}
       >
-        <Box display="flex" flexDirection="column" height="100%" px={3} py={4} gap={4}>
-          <Box>
-            <Typography variant="h5" fontWeight={700} letterSpacing={0.6}>
-              RoastSync
-            </Typography>
-            <Typography variant="body2" sx={{ opacity: 0.7 }}>
-              Orquesta tu tostion diaria
-            </Typography>
-          </Box>
+        <Stack spacing={1} sx={{ pt: 1 }}>
+          <Typography variant="h5" fontWeight={700} letterSpacing={0.6}>
+            RoastSync
+          </Typography>
+          <Typography variant="body2" sx={{ opacity: 0.75 }}>
+            Plataforma operativa de tueste
+          </Typography>
+        </Stack>
 
-          <List sx={{ flexGrow: 1, display: "flex", flexDirection: "column", py: 0 }}>
-            {navItems
-              .filter((item) => !item.adminOnly || user?.is_superuser)
-              .map((item) => {
-                const isActive = location.pathname.startsWith(item.to);
-                return (
+        <List sx={{ flexGrow: 1, display: "flex", flexDirection: "column", py: 0 }}>
+          {navItems
+            .filter((item) => !item.adminOnly || user?.is_superuser)
+            .map((item) => {
+              const isActive = location.pathname.startsWith(item.to);
+              return (
                 <ListItemButton
                   key={item.to}
                   component={NavLink}
                   to={item.to}
                   sx={{
-                    px: 2.5,
-                    py: 1.6,
+                    px: 2,
+                    py: 1.4,
                     gap: 1.5,
-                    borderRadius: 0,
+                    borderRadius: 2,
+                    mb: 0.5,
                     backgroundColor: isActive ? "rgba(255,255,255,0.16)" : "transparent",
-                    color: isActive ? "secondary.main" : "rgba(255,255,255,0.78)",
+                    color: isActive ? "secondary.main" : "rgba(249,250,251,0.85)",
+                    transition: "all 0.2s ease",
                     '&:hover': {
-                      backgroundColor: "rgba(255,255,255,0.2)",
+                      backgroundColor: "rgba(255,255,255,0.22)",
                       color: "secondary.main"
                     }
                   }}
@@ -105,38 +126,41 @@ const MainLayout = () => {
                 </ListItemButton>
               );
             })}
-          </List>
+        </List>
 
-          <Divider sx={{ borderColor: "rgba(255,255,255,0.12)" }} />
+        <Divider sx={{ borderColor: "rgba(255,255,255,0.12)", my: 2 }} />
 
-          <Box display="flex" flexDirection="column" gap={1.5}>
-            <Box>
-              <Typography variant="body2" sx={{ opacity: 0.6 }}>
-                Sesion activa
-              </Typography>
-              <Typography variant="body1" fontWeight={600}>
-                {user?.full_name ?? user?.email}
-              </Typography>
-            </Box>
-            <Button
-              variant="outlined"
-              color="secondary"
-              onClick={logout}
-              sx={{
-                borderRadius: 2,
-                borderWidth: 2,
-                color: "#fff",
-                borderColor: "rgba(255,255,255,0.35)",
-                '&:hover': {
-                  borderColor: "secondary.main",
-                  backgroundColor: "rgba(255,255,255,0.08)"
-                }
-              }}
-            >
-              Cerrar sesion
-            </Button>
+        <Stack spacing={1.5} alignItems="flex-start" mb={2}>
+          <Avatar sx={{ bgcolor: "secondary.main", color: "primary.contrastText" }}>
+            {user?.full_name?.[0]?.toUpperCase() ?? user?.email?.[0]?.toUpperCase() ?? "U"}
+          </Avatar>
+          <Box>
+            <Typography variant="subtitle2" fontWeight={600}>
+              {user?.full_name ?? user?.email}
+            </Typography>
+            <Typography variant="caption" sx={{ opacity: 0.6 }}>
+              Sesión activa
+            </Typography>
           </Box>
-        </Box>
+          <Button
+            variant="outlined"
+            color="secondary"
+            onClick={logout}
+            startIcon={<LogoutRoundedIcon />}
+            sx={{
+              borderRadius: 999,
+              borderWidth: 2,
+              color: "#f9fafb",
+              borderColor: "rgba(255,255,255,0.3)",
+              '&:hover': {
+                borderColor: "secondary.light",
+                backgroundColor: "rgba(255,255,255,0.12)"
+              }
+            }}
+          >
+            Cerrar sesión
+          </Button>
+        </Stack>
       </Drawer>
 
       <Box
@@ -146,10 +170,40 @@ const MainLayout = () => {
           display: "flex",
           flexDirection: "column",
           minHeight: "100vh",
-          px: { xs: 3, md: 5 },
-          py: { xs: 4, md: 5 }
+          bgcolor: "#f4f6fb",
+          px: { xs: 3, md: 6 },
+          py: { xs: 3, md: 4 }
         }}
       >
+        <Box
+          sx={{
+            mb: 4,
+            display: "flex",
+            alignItems: { xs: "flex-start", md: "center" },
+            flexDirection: { xs: "column", md: "row" },
+            gap: 2,
+            justifyContent: "space-between"
+          }}
+        >
+          <Box>
+            <Typography variant="h4" fontWeight={700}>
+              {currentNav?.label ?? "Panel"}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              {sectionDescriptions[currentNav?.label ?? ""] ?? "Monitorea y gestiona la operación del café"}
+            </Typography>
+          </Box>
+          <Stack direction="row" spacing={2} alignItems="center">
+            <Typography variant="caption" color="text.secondary">
+              {new Date().toLocaleDateString("es-CO", {
+                weekday: "long",
+                year: "numeric",
+                month: "long",
+                day: "numeric"
+              })}
+            </Typography>
+          </Stack>
+        </Box>
         <Box sx={{ flexGrow: 1 }}>
           <Outlet />
         </Box>
