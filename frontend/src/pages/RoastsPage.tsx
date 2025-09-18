@@ -4,7 +4,10 @@ import {
   Card,
   CardContent,
   CardHeader,
-  Collapse,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   IconButton,
   MenuItem,
   Stack,
@@ -17,6 +20,7 @@ import {
   Tooltip,
   Typography
 } from "@mui/material";
+import AddRoundedIcon from "@mui/icons-material/AddRounded";
 import DeleteRoundedIcon from "@mui/icons-material/DeleteRounded";
 import EditRoundedIcon from "@mui/icons-material/EditRounded";
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
@@ -58,7 +62,7 @@ const RoastsPage = () => {
   });
   const [deleteTarget, setDeleteTarget] = useState<RoastBatch | null>(null);
   const [deleting, setDeleting] = useState(false);
-  const [formOpen, setFormOpen] = useState(true);
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   const loadData = useMemo(
     () =>
@@ -172,6 +176,16 @@ const RoastsPage = () => {
     setErrors({});
   };
 
+  const openCreateDialog = () => {
+    resetForm();
+    setDialogOpen(true);
+  };
+
+  const handleFilterChange = (field: keyof typeof filters) => (event: ChangeEvent<HTMLInputElement>) => {
+    const { value } = event.target;
+    setFilters((prev) => ({ ...prev, [field]: value.toString() }));
+  };
+
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const payload = {
@@ -212,8 +226,9 @@ const RoastsPage = () => {
       } else {
         await createRoast(payload);
       }
-      resetForm();
       await loadData();
+      resetForm();
+      setDialogOpen(false);
     } catch (error) {
       console.error("Failed to save roast", error);
     } finally {
@@ -231,11 +246,7 @@ const RoastsPage = () => {
       roast_level: roast.roast_level ?? "",
       notes: roast.notes ?? ""
     });
-  };
-
-  const handleFilterChange = (field: keyof typeof filters) => (event: ChangeEvent<HTMLInputElement>) => {
-    const { value } = event.target;
-    setFilters((prev) => ({ ...prev, [field]: value.toString() }));
+    setDialogOpen(true);
   };
 
   const handleDeleteRequest = (roast: RoastBatch) => {
@@ -265,111 +276,25 @@ const RoastsPage = () => {
     }
   };
 
+  const handleDialogClose = () => {
+    if (saving) {
+      return;
+    }
+    setDialogOpen(false);
+    resetForm();
+  };
+
   return (
     <Stack spacing={4}>
-      <Card>
-        <CardHeader
-          title={editingId ? "Editar tostion" : "Registrar tostion"}
-          action={
-            <Button size="small" onClick={() => setFormOpen((prev) => !prev)}>
-              {formOpen ? "Ocultar" : "Mostrar"}
-            </Button>
-          }
-        />
-        <Collapse in={formOpen} timeout="auto" unmountOnExit>
-          <CardContent>
-            <Box component="form" display="flex" flexDirection="column" gap={2} onSubmit={handleSubmit}>
-              <TextField
-                select
-                label="Lote"
-                value={form.lot_id}
-                onChange={(e) => setForm((prev) => ({ ...prev, lot_id: e.target.value }))}
-                required
-              >
-                {lotOptions.map((lot) => {
-                  const farmName = farms.find((farm) => farm.id === lot.farm_id)?.name ?? "Finca desconocida";
-                  const varietyName =
-                    varieties.find((variety) => variety.id === lot.variety_id)?.name ?? "Variedad desconocida";
-                  const formattedDate = new Date(lot.purchase_date).toLocaleDateString();
-                  const available = getAvailableGreenKg(lot.id, editingId);
-
-                  return (
-                    <MenuItem key={lot.id} value={String(lot.id)}>
-                      <Box display="flex" flexDirection="column" alignItems="flex-start">
-                        <Typography variant="body2" fontWeight={600}>
-                          {`Lote #${lot.id} · ${varietyName}`}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          {`${formattedDate} · ${lot.process} · ${farmName} · Disponible: ${available.toFixed(2)} kg`}
-                        </Typography>
-                      </Box>
-                    </MenuItem>
-                  );
-                })}
-              </TextField>
-              <TextField
-                label="Fecha"
-                type="date"
-                InputLabelProps={{ shrink: true }}
-                value={form.roast_date}
-                onChange={(e) => setForm((prev) => ({ ...prev, roast_date: e.target.value }))}
-                required
-              />
-              <TextField
-                label="Kg verdes"
-                type="number"
-                value={form.green_input_kg}
-                onChange={(e) => setForm((prev) => ({ ...prev, green_input_kg: e.target.value }))}
-                error={Boolean(errors.green)}
-                helperText={
-                  errors.green ??
-                  (availableGreenForSelectedLot != null
-                    ? `Disponible: ${availableGreenForSelectedLot.toFixed(2)} kg`
-                    : undefined)
-                }
-                inputProps={{ min: 0, step: "0.01" }}
-                required
-              />
-              <TextField
-                label="Kg tostado"
-                type="number"
-                value={form.roasted_output_kg}
-                onChange={(e) => setForm((prev) => ({ ...prev, roasted_output_kg: e.target.value }))}
-                error={Boolean(errors.roasted)}
-                helperText={errors.roasted}
-                inputProps={{ min: 0, step: "0.01" }}
-                required
-              />
-              <TextField
-                label="Nivel de tueste"
-                value={form.roast_level}
-                onChange={(e) => setForm((prev) => ({ ...prev, roast_level: e.target.value }))}
-              />
-              <TextField
-                label="Notas"
-                value={form.notes}
-                onChange={(e) => setForm((prev) => ({ ...prev, notes: e.target.value }))}
-                multiline
-                rows={3}
-              />
-              <Box display="flex" gap={2}>
-                <Button type="submit" variant="contained" disabled={saving}>
-                  {editingId ? "Actualizar" : "Guardar tostion"}
-                </Button>
-                {editingId && (
-                  <Button variant="outlined" onClick={resetForm} disabled={saving}>
-                    Cancelar
-                  </Button>
-                )}
-              </Box>
-            </Box>
-          </CardContent>
-        </Collapse>
-      </Card>
       <Card sx={{ display: "flex", flexDirection: "column", flexGrow: 1 }}>
         <CardHeader
           title="Historial tostiones"
           subheader={`${filteredRoasts.length} de ${roasts.length} registros`}
+          action={
+            <Button startIcon={<AddRoundedIcon />} variant="contained" onClick={openCreateDialog}>
+              Nueva tostion
+            </Button>
+          }
         />
         <CardContent sx={{ flexGrow: 1, overflowX: "auto" }}>
           <FilterPanel
@@ -395,8 +320,8 @@ const RoastsPage = () => {
             >
               <MenuItem value="">Todos</MenuItem>
               {lots.map((lot) => {
-                const varietyName = varieties.find((variety) => variety.id === lot.variety_id)?.name ?? "Variedad";
-                const farmName = farms.find((farm) => farm.id === lot.farm_id)?.name ?? "Finca";
+                const varietyName = varieties.find((v) => v.id === lot.variety_id)?.name ?? "Variedad";
+                const farmName = farms.find((f) => f.id === lot.farm_id)?.name ?? "Finca";
                 return (
                   <MenuItem key={lot.id} value={String(lot.id)}>
                     <Box display="flex" flexDirection="column" alignItems="flex-start">
@@ -411,51 +336,51 @@ const RoastsPage = () => {
                 );
               })}
             </TextField>
-              <TextField
-                label="Desde"
-                type="date"
-                InputLabelProps={{ shrink: true }}
-                value={filters.dateFrom}
-                onChange={handleFilterChange("dateFrom")}
-              />
-              <TextField
-                label="Hasta"
-                type="date"
-                InputLabelProps={{ shrink: true }}
-                value={filters.dateTo}
-                onChange={handleFilterChange("dateTo")}
-              />
-              <TextField
-                label="Kg verde min"
-                type="number"
-                value={filters.minGreen}
-                onChange={handleFilterChange("minGreen")}
-              />
-              <TextField
-                label="Kg verde max"
-                type="number"
-                value={filters.maxGreen}
-                onChange={handleFilterChange("maxGreen")}
-              />
-              <TextField
-                label="Kg tostado min"
-                type="number"
-                value={filters.minRoasted}
-                onChange={handleFilterChange("minRoasted")}
-              />
-              <TextField
-                label="Kg tostado max"
-                type="number"
-                value={filters.maxRoasted}
-                onChange={handleFilterChange("maxRoasted")}
-              />
-              <TextField
-                label="Nivel de tueste"
-                value={filters.roastLevel}
-                onChange={handleFilterChange("roastLevel")}
-                placeholder="Filtrar por nivel"
-              />
-            </FilterPanel>
+            <TextField
+              label="Desde"
+              type="date"
+              InputLabelProps={{ shrink: true }}
+              value={filters.dateFrom}
+              onChange={handleFilterChange("dateFrom")}
+            />
+            <TextField
+              label="Hasta"
+              type="date"
+              InputLabelProps={{ shrink: true }}
+              value={filters.dateTo}
+              onChange={handleFilterChange("dateTo")}
+            />
+            <TextField
+              label="Kg verde min"
+              type="number"
+              value={filters.minGreen}
+              onChange={handleFilterChange("minGreen")}
+            />
+            <TextField
+              label="Kg verde max"
+              type="number"
+              value={filters.maxGreen}
+              onChange={handleFilterChange("maxGreen")}
+            />
+            <TextField
+              label="Kg tostado min"
+              type="number"
+              value={filters.minRoasted}
+              onChange={handleFilterChange("minRoasted")}
+            />
+            <TextField
+              label="Kg tostado max"
+              type="number"
+              value={filters.maxRoasted}
+              onChange={handleFilterChange("maxRoasted")}
+            />
+            <TextField
+              label="Nivel de tueste"
+              value={filters.roastLevel}
+              onChange={handleFilterChange("roastLevel")}
+              placeholder="Filtrar por nivel"
+            />
+          </FilterPanel>
           <Table size="small" stickyHeader>
             <TableHead>
               <TableRow>
@@ -538,7 +463,7 @@ const RoastsPage = () => {
               )}
             </TableBody>
           </Table>
-          </CardContent>
+        </CardContent>
       </Card>
       <ConfirmDialog
         open={Boolean(deleteTarget)}
@@ -553,6 +478,94 @@ const RoastsPage = () => {
         confirmLabel="Eliminar"
         loading={deleting}
       />
+      <Dialog open={dialogOpen} onClose={handleDialogClose} fullWidth maxWidth="md">
+        <DialogTitle>{editingId ? "Editar tostion" : "Registrar tostion"}</DialogTitle>
+        <Box component="form" id="roast-form" onSubmit={handleSubmit} display="flex" flexDirection="column" gap={0}>
+          <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            <TextField
+              select
+              label="Lote"
+              value={form.lot_id}
+              onChange={(e) => setForm((prev) => ({ ...prev, lot_id: e.target.value }))}
+              required
+            >
+              {lotOptions.map((lot) => {
+                const farmName = farms.find((farm) => farm.id === lot.farm_id)?.name ?? "Finca desconocida";
+                const varietyName =
+                  varieties.find((variety) => variety.id === lot.variety_id)?.name ?? "Variedad desconocida";
+                const formattedDate = new Date(lot.purchase_date).toLocaleDateString();
+                const available = getAvailableGreenKg(lot.id, editingId);
+
+                return (
+                  <MenuItem key={lot.id} value={String(lot.id)}>
+                    <Box display="flex" flexDirection="column" alignItems="flex-start">
+                      <Typography variant="body2" fontWeight={600}>
+                        {`Lote #${lot.id} · ${varietyName}`}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {`${formattedDate} · ${lot.process} · ${farmName} · Disponible: ${available.toFixed(2)} kg`}
+                      </Typography>
+                    </Box>
+                  </MenuItem>
+                );
+              })}
+            </TextField>
+            <TextField
+              label="Fecha"
+              type="date"
+              InputLabelProps={{ shrink: true }}
+              value={form.roast_date}
+              onChange={(e) => setForm((prev) => ({ ...prev, roast_date: e.target.value }))}
+              required
+            />
+            <TextField
+              label="Kg verdes"
+              type="number"
+              value={form.green_input_kg}
+              onChange={(e) => setForm((prev) => ({ ...prev, green_input_kg: e.target.value }))}
+              error={Boolean(errors.green)}
+              helperText={
+                errors.green ??
+                (availableGreenForSelectedLot != null
+                  ? `Disponible: ${availableGreenForSelectedLot.toFixed(2)} kg`
+                  : undefined)
+              }
+              inputProps={{ min: 0, step: "0.01" }}
+              required
+            />
+            <TextField
+              label="Kg tostado"
+              type="number"
+              value={form.roasted_output_kg}
+              onChange={(e) => setForm((prev) => ({ ...prev, roasted_output_kg: e.target.value }))}
+              error={Boolean(errors.roasted)}
+              helperText={errors.roasted}
+              inputProps={{ min: 0, step: "0.01" }}
+              required
+            />
+            <TextField
+              label="Nivel de tueste"
+              value={form.roast_level}
+              onChange={(e) => setForm((prev) => ({ ...prev, roast_level: e.target.value }))}
+            />
+            <TextField
+              label="Notas"
+              value={form.notes}
+              onChange={(e) => setForm((prev) => ({ ...prev, notes: e.target.value }))}
+              multiline
+              rows={3}
+            />
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={handleDialogClose} disabled={saving}>
+              Cancelar
+            </Button>
+            <Button type="submit" variant="contained" disabled={saving}>
+              {editingId ? "Actualizar" : "Crear"}
+            </Button>
+          </DialogActions>
+        </Box>
+      </Dialog>
     </Stack>
   );
 };

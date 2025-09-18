@@ -4,7 +4,10 @@ import {
   Card,
   CardContent,
   CardHeader,
-  Collapse,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   IconButton,
   Stack,
   Table,
@@ -16,6 +19,7 @@ import {
   Tooltip,
   Typography
 } from "@mui/material";
+import AddRoundedIcon from "@mui/icons-material/AddRounded";
 import DeleteRoundedIcon from "@mui/icons-material/DeleteRounded";
 import EditRoundedIcon from "@mui/icons-material/EditRounded";
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
@@ -35,7 +39,7 @@ const VarietiesPage = () => {
   const [filters, setFilters] = useState({ name: "", description: "" });
   const [deleteTarget, setDeleteTarget] = useState<Variety | null>(null);
   const [deleting, setDeleting] = useState(false);
-  const [formOpen, setFormOpen] = useState(true);
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   const loadVarieties = useMemo(
     () =>
@@ -74,6 +78,11 @@ const VarietiesPage = () => {
     setEditingId(null);
   };
 
+  const openCreateDialog = () => {
+    resetForm();
+    setDialogOpen(true);
+  };
+
   const handleFilterChange = (field: keyof typeof filters) => (event: ChangeEvent<HTMLInputElement>) => {
     const { value } = event.target;
     setFilters((prev) => ({ ...prev, [field]: value.toString() }));
@@ -88,8 +97,9 @@ const VarietiesPage = () => {
       } else {
         await createVariety(form);
       }
-      resetForm();
       await loadVarieties();
+      resetForm();
+      setDialogOpen(false);
     } catch (error) {
       console.error("Failed to save variety", error);
     } finally {
@@ -100,6 +110,7 @@ const VarietiesPage = () => {
   const handleEdit = (variety: Variety) => {
     setEditingId(variety.id);
     setForm({ name: variety.name, description: variety.description ?? "" });
+    setDialogOpen(true);
   };
 
   const handleDeleteRequest = (variety: Variety) => {
@@ -129,109 +140,82 @@ const VarietiesPage = () => {
     }
   };
 
+  const handleDialogClose = () => {
+    if (saving) {
+      return;
+    }
+    setDialogOpen(false);
+    resetForm();
+  };
+
   return (
     <Stack spacing={4} sx={{ height: "100%" }}>
-      <Card>
-        <CardHeader
-          title={editingId ? "Editar variedad" : "Registrar variedad"}
-          subheader="Gestiona variedades y procesos"
-          action={
-            <Button size="small" onClick={() => setFormOpen((prev) => !prev)}>
-              {formOpen ? "Ocultar" : "Mostrar"}
-            </Button>
-          }
-        />
-        <Collapse in={formOpen} timeout="auto" unmountOnExit>
-          <CardContent>
-            <Box component="form" onSubmit={handleSubmit} display="flex" flexDirection="column" gap={2}>
-              <TextField
-                label="Nombre"
-                value={form.name}
-                onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
-                required
-              />
-              <TextField
-                label="Descripcion"
-                value={form.description}
-                onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))}
-                multiline
-                minRows={3}
-              />
-              <Box display="flex" gap={2}>
-                <Button type="submit" variant="contained" disabled={saving}>
-                  {editingId ? "Actualizar" : "Crear"}
-                </Button>
-                {editingId && (
-                  <Button variant="outlined" onClick={resetForm} disabled={saving}>
-                    Cancelar
-                  </Button>
-                )}
-              </Box>
-            </Box>
-          </CardContent>
-        </Collapse>
-      </Card>
       <Card sx={{ flexGrow: 1, display: "flex", flexDirection: "column" }}>
         <CardHeader
           title="Variedades registradas"
           subheader={`${filteredVarieties.length} de ${varieties.length} registros`}
+          action={
+            <Button startIcon={<AddRoundedIcon />} variant="contained" onClick={openCreateDialog}>
+              Nueva variedad
+            </Button>
+          }
         />
         <CardContent sx={{ flexGrow: 1, overflowX: "auto" }}>
-            <FilterPanel
-              isDirty={isFiltering}
-              onClear={() => setFilters({ name: "", description: "" })}
-            >
-              <TextField
-                label="Nombre"
-                value={filters.name}
-                onChange={handleFilterChange("name")}
-                placeholder="Filtrar por nombre"
-              />
-              <TextField
-                label="Descripcion"
-                value={filters.description}
-                onChange={handleFilterChange("description")}
-                placeholder="Filtrar por descripcion"
-              />
-            </FilterPanel>
-            {filteredVarieties.length === 0 ? (
-              <Typography variant="body2" color="text.secondary">
-                {isFiltering
-                  ? "No hay variedades que coincidan con los filtros."
-                  : "No hay variedades registradas."}
-              </Typography>
-            ) : (
-              <Table size="small" stickyHeader>
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Nombre</TableCell>
-                    <TableCell>Descripcion</TableCell>
-                    <TableCell align="right">Acciones</TableCell>
+          <FilterPanel
+            isDirty={isFiltering}
+            onClear={() => setFilters({ name: "", description: "" })}
+          >
+            <TextField
+              label="Nombre"
+              value={filters.name}
+              onChange={handleFilterChange("name")}
+              placeholder="Filtrar por nombre"
+            />
+            <TextField
+              label="Descripcion"
+              value={filters.description}
+              onChange={handleFilterChange("description")}
+              placeholder="Filtrar por descripcion"
+            />
+          </FilterPanel>
+          {filteredVarieties.length === 0 ? (
+            <Typography variant="body2" color="text.secondary">
+              {isFiltering
+                ? "No hay variedades que coincidan con los filtros."
+                : "No hay variedades registradas."}
+            </Typography>
+          ) : (
+            <Table size="small" stickyHeader>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Nombre</TableCell>
+                  <TableCell>Descripcion</TableCell>
+                  <TableCell align="right">Acciones</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {filteredVarieties.map((variety) => (
+                  <TableRow key={variety.id} hover>
+                    <TableCell>{variety.name}</TableCell>
+                    <TableCell>{variety.description}</TableCell>
+                    <TableCell align="right">
+                      <Tooltip title="Editar">
+                        <IconButton color="primary" onClick={() => handleEdit(variety)}>
+                          <EditRoundedIcon />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Eliminar">
+                        <IconButton color="error" onClick={() => handleDeleteRequest(variety)}>
+                          <DeleteRoundedIcon />
+                        </IconButton>
+                      </Tooltip>
+                    </TableCell>
                   </TableRow>
-                </TableHead>
-                <TableBody>
-                  {filteredVarieties.map((variety) => (
-                    <TableRow key={variety.id} hover>
-                      <TableCell>{variety.name}</TableCell>
-                      <TableCell>{variety.description}</TableCell>
-                      <TableCell align="right">
-                        <Tooltip title="Editar">
-                          <IconButton color="primary" onClick={() => handleEdit(variety)}>
-                            <EditRoundedIcon />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Eliminar">
-                          <IconButton color="error" onClick={() => handleDeleteRequest(variety)}>
-                            <DeleteRoundedIcon />
-                          </IconButton>
-                        </Tooltip>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
       </Card>
       <ConfirmDialog
         open={Boolean(deleteTarget)}
@@ -246,6 +230,35 @@ const VarietiesPage = () => {
         confirmLabel="Eliminar"
         loading={deleting}
       />
+      <Dialog open={dialogOpen} onClose={handleDialogClose} fullWidth maxWidth="sm">
+        <DialogTitle>{editingId ? "Editar variedad" : "Registrar variedad"}</DialogTitle>
+        <Box component="form" id="variety-form" onSubmit={handleSubmit} display="flex" flexDirection="column" gap={0}>
+          <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            <TextField
+              label="Nombre"
+              value={form.name}
+              onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
+              required
+              autoFocus
+            />
+            <TextField
+              label="Descripcion"
+              value={form.description}
+              onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))}
+              multiline
+              minRows={3}
+            />
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={handleDialogClose} disabled={saving}>
+              Cancelar
+            </Button>
+            <Button type="submit" variant="contained" disabled={saving}>
+              {editingId ? "Actualizar" : "Crear"}
+            </Button>
+          </DialogActions>
+        </Box>
+      </Dialog>
     </Stack>
   );
 };

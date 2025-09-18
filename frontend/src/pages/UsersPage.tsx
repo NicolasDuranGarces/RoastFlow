@@ -5,7 +5,10 @@ import {
   CardContent,
   CardHeader,
   Checkbox,
-  Collapse,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   FormControlLabel,
   IconButton,
   MenuItem,
@@ -19,6 +22,7 @@ import {
   Tooltip,
   Typography
 } from "@mui/material";
+import AddRoundedIcon from "@mui/icons-material/AddRounded";
 import DeleteRoundedIcon from "@mui/icons-material/DeleteRounded";
 import EditRoundedIcon from "@mui/icons-material/EditRounded";
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
@@ -46,7 +50,7 @@ const UsersPage = () => {
   const [filters, setFilters] = useState({ search: "", active: "all", role: "all" });
   const [deleteTarget, setDeleteTarget] = useState<User | null>(null);
   const [deleting, setDeleting] = useState(false);
-  const [formOpen, setFormOpen] = useState(true);
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   const loadUsers = useMemo(
     () =>
@@ -66,6 +70,19 @@ const UsersPage = () => {
       void loadUsers();
     }
   }, [loadUsers, user]);
+
+  if (!user?.is_superuser) {
+    return (
+      <Card>
+        <CardHeader title="Usuarios" />
+        <CardContent>
+          <Typography variant="body1">
+            Solo los administradores pueden gestionar usuarios. Solicita acceso a un superusuario.
+          </Typography>
+        </CardContent>
+      </Card>
+    );
+  }
 
   const filteredUsers = useMemo(() => {
     const searchValue = filters.search.toLowerCase();
@@ -98,22 +115,19 @@ const UsersPage = () => {
     [filters]
   );
 
-  if (!user?.is_superuser) {
-    return (
-      <Card>
-        <CardHeader title="Usuarios" />
-        <CardContent>
-          <Typography variant="body1">
-            Solo los administradores pueden gestionar usuarios. Solicita acceso a un superusuario.
-          </Typography>
-        </CardContent>
-      </Card>
-    );
-  }
-
   const resetForm = () => {
     setForm(emptyForm);
     setEditingId(null);
+  };
+
+  const openCreateDialog = () => {
+    resetForm();
+    setDialogOpen(true);
+  };
+
+  const handleFilterChange = (field: keyof typeof filters) => (event: ChangeEvent<HTMLInputElement>) => {
+    const { value } = event.target;
+    setFilters((prev) => ({ ...prev, [field]: value.toString() }));
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -131,8 +145,9 @@ const UsersPage = () => {
       } else {
         await createUser(form);
       }
-      resetForm();
       await loadUsers();
+      resetForm();
+      setDialogOpen(false);
     } catch (error) {
       console.error("Failed to save user", error);
     } finally {
@@ -140,20 +155,16 @@ const UsersPage = () => {
     }
   };
 
-  const handleEdit = (user: User) => {
-    setEditingId(user.id);
+  const handleEdit = (target: User) => {
+    setEditingId(target.id);
     setForm({
-      email: user.email,
-      full_name: user.full_name ?? "",
+      email: target.email,
+      full_name: target.full_name ?? "",
       password: "",
-      is_active: user.is_active,
-      is_superuser: user.is_superuser
+      is_active: target.is_active,
+      is_superuser: target.is_superuser
     });
-  };
-
-  const handleFilterChange = (field: keyof typeof filters) => (event: ChangeEvent<HTMLInputElement>) => {
-    const { value } = event.target;
-    setFilters((prev) => ({ ...prev, [field]: value.toString() }));
+    setDialogOpen(true);
   };
 
   const handleDeleteRequest = (target: User) => {
@@ -183,151 +194,91 @@ const UsersPage = () => {
     }
   };
 
+  const handleDialogClose = () => {
+    if (saving) {
+      return;
+    }
+    setDialogOpen(false);
+    resetForm();
+  };
+
   return (
     <Stack spacing={4}>
-      <Card>
-        <CardHeader
-          title={editingId ? "Editar usuario" : "Crear usuario"}
-          action={
-            <Button size="small" onClick={() => setFormOpen((prev) => !prev)}>
-              {formOpen ? "Ocultar" : "Mostrar"}
-            </Button>
-          }
-        />
-        <Collapse in={formOpen} timeout="auto" unmountOnExit>
-          <CardContent>
-            <Box component="form" display="flex" flexDirection="column" gap={2} onSubmit={handleSubmit}>
-              <TextField
-                label="Email"
-                type="email"
-                value={form.email}
-                onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))}
-                required
-                disabled={Boolean(editingId)}
-              />
-              <TextField
-                label="Nombre completo"
-                value={form.full_name}
-                onChange={(e) => setForm((prev) => ({ ...prev, full_name: e.target.value }))}
-              />
-              <TextField
-                label={editingId ? "Nueva clave (opcional)" : "Clave"}
-                type="password"
-                value={form.password}
-                onChange={(e) => setForm((prev) => ({ ...prev, password: e.target.value }))}
-                required={!editingId}
-              />
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={form.is_active}
-                    onChange={(e) => setForm((prev) => ({ ...prev, is_active: e.target.checked }))}
-                  />
-                }
-                label="Usuario activo"
-              />
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={form.is_superuser}
-                    onChange={(e) => setForm((prev) => ({ ...prev, is_superuser: e.target.checked }))}
-                  />
-                }
-                label="Administrador"
-              />
-              <Box display="flex" gap={2}>
-                <Button type="submit" variant="contained" disabled={saving}>
-                  {editingId ? "Actualizar" : "Crear"}
-                </Button>
-                {editingId && (
-                  <Button variant="outlined" onClick={resetForm} disabled={saving}>
-                    Cancelar
-                  </Button>
-                )}
-              </Box>
-            </Box>
-          </CardContent>
-        </Collapse>
-      </Card>
       <Card sx={{ display: "flex", flexDirection: "column", flexGrow: 1 }}>
         <CardHeader
           title="Usuarios"
           subheader={`${filteredUsers.length} de ${users.length} registrados`}
+          action={
+            <Button startIcon={<AddRoundedIcon />} variant="contained" onClick={openCreateDialog}>
+              Nuevo usuario
+            </Button>
+          }
         />
         <CardContent sx={{ flexGrow: 1, overflowX: "auto" }}>
-            <FilterPanel
-              isDirty={isFiltering}
-              onClear={() => setFilters({ search: "", active: "all", role: "all" })}
+          <FilterPanel
+            isDirty={isFiltering}
+            onClear={() => setFilters({ search: "", active: "all", role: "all" })}
+          >
+            <TextField
+              label="Buscar"
+              value={filters.search}
+              onChange={handleFilterChange("search")}
+              placeholder="Email o nombre"
+            />
+            <TextField select label="Estado" value={filters.active} onChange={handleFilterChange("active")}>
+              <MenuItem value="all">Todos</MenuItem>
+              <MenuItem value="active">Activos</MenuItem>
+              <MenuItem value="inactive">Inactivos</MenuItem>
+            </TextField>
+            <TextField select label="Rol" value={filters.role} onChange={handleFilterChange("role")}
             >
-              <TextField
-                label="Buscar"
-                value={filters.search}
-                onChange={handleFilterChange("search")}
-                placeholder="Email o nombre"
-              />
-              <TextField
-                select
-                label="Estado"
-                value={filters.active}
-                onChange={handleFilterChange("active")}
-              >
-                <MenuItem value="all">Todos</MenuItem>
-                <MenuItem value="active">Activos</MenuItem>
-                <MenuItem value="inactive">Inactivos</MenuItem>
-              </TextField>
-              <TextField
-                select
-                label="Rol"
-                value={filters.role}
-                onChange={handleFilterChange("role")}
-              >
-                <MenuItem value="all">Todos</MenuItem>
-                <MenuItem value="admin">Administradores</MenuItem>
-                <MenuItem value="standard">Operativos</MenuItem>
-              </TextField>
-            </FilterPanel>
-            {filteredUsers.length === 0 ? (
-              <Typography variant="body2" color="text.secondary">
-                {isFiltering
-                  ? "No hay usuarios que coincidan con los filtros."
-                  : "No hay usuarios registrados."}
-              </Typography>
-            ) : (
-              <Table size="small" stickyHeader>
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Email</TableCell>
-                    <TableCell>Nombre</TableCell>
-                    <TableCell>Activo</TableCell>
-                    <TableCell>Admin</TableCell>
-                    <TableCell align="right">Acciones</TableCell>
+              <MenuItem value="all">Todos</MenuItem>
+              <MenuItem value="admin">Administradores</MenuItem>
+              <MenuItem value="standard">Operativos</MenuItem>
+            </TextField>
+          </FilterPanel>
+          {filteredUsers.length === 0 ? (
+            <Typography variant="body2" color="text.secondary">
+              {isFiltering
+                ? "No hay usuarios que coincidan con los filtros."
+                : "No hay usuarios registrados."}
+            </Typography>
+          ) : (
+            <Table size="small" stickyHeader>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Email</TableCell>
+                  <TableCell>Nombre</TableCell>
+                  <TableCell>Activo</TableCell>
+                  <TableCell>Admin</TableCell>
+                  <TableCell align="right">Acciones</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {filteredUsers.map((candidate) => (
+                  <TableRow key={candidate.id}>
+                    <TableCell>{candidate.email}</TableCell>
+                    <TableCell>{candidate.full_name}</TableCell>
+                    <TableCell>{candidate.is_active ? "Si" : "No"}</TableCell>
+                    <TableCell>{candidate.is_superuser ? "Si" : "No"}</TableCell>
+                    <TableCell align="right">
+                      <Tooltip title="Editar">
+                        <IconButton color="primary" onClick={() => handleEdit(candidate)}>
+                          <EditRoundedIcon />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Eliminar">
+                        <IconButton color="error" onClick={() => handleDeleteRequest(candidate)}>
+                          <DeleteRoundedIcon />
+                        </IconButton>
+                      </Tooltip>
+                    </TableCell>
                   </TableRow>
-                </TableHead>
-                <TableBody>
-                  {filteredUsers.map((user) => (
-                    <TableRow key={user.id}>
-                      <TableCell>{user.email}</TableCell>
-                      <TableCell>{user.full_name}</TableCell>
-                      <TableCell>{user.is_active ? "Si" : "No"}</TableCell>
-                      <TableCell>{user.is_superuser ? "Si" : "No"}</TableCell>
-                      <TableCell align="right">
-                        <Tooltip title="Editar">
-                          <IconButton color="primary" onClick={() => handleEdit(user)}>
-                            <EditRoundedIcon />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Eliminar">
-                          <IconButton color="error" onClick={() => handleDeleteRequest(user)}>
-                            <DeleteRoundedIcon />
-                          </IconButton>
-                        </Tooltip>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
       </Card>
       <ConfirmDialog
         open={Boolean(deleteTarget)}
@@ -342,6 +293,60 @@ const UsersPage = () => {
         confirmLabel="Eliminar"
         loading={deleting}
       />
+      <Dialog open={dialogOpen} onClose={handleDialogClose} fullWidth maxWidth="sm">
+        <DialogTitle>{editingId ? "Editar usuario" : "Crear usuario"}</DialogTitle>
+        <Box component="form" id="user-form" onSubmit={handleSubmit} display="flex" flexDirection="column" gap={0}>
+          <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            <TextField
+              label="Email"
+              type="email"
+              value={form.email}
+              onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))}
+              required
+              disabled={Boolean(editingId)}
+              autoFocus={!editingId}
+            />
+            <TextField
+              label="Nombre completo"
+              value={form.full_name}
+              onChange={(e) => setForm((prev) => ({ ...prev, full_name: e.target.value }))}
+            />
+            <TextField
+              label={editingId ? "Nueva clave (opcional)" : "Clave"}
+              type="password"
+              value={form.password}
+              onChange={(e) => setForm((prev) => ({ ...prev, password: e.target.value }))}
+              required={!editingId}
+            />
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={form.is_active}
+                  onChange={(e) => setForm((prev) => ({ ...prev, is_active: e.target.checked }))}
+                />
+              }
+              label="Usuario activo"
+            />
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={form.is_superuser}
+                  onChange={(e) => setForm((prev) => ({ ...prev, is_superuser: e.target.checked }))}
+                />
+              }
+              label="Administrador"
+            />
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={handleDialogClose} disabled={saving}>
+              Cancelar
+            </Button>
+            <Button type="submit" variant="contained" disabled={saving}>
+              {editingId ? "Actualizar" : "Crear"}
+            </Button>
+          </DialogActions>
+        </Box>
+      </Dialog>
     </Stack>
   );
 };

@@ -4,7 +4,10 @@ import {
   Card,
   CardContent,
   CardHeader,
-  Collapse,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   IconButton,
   MenuItem,
   Stack,
@@ -17,6 +20,7 @@ import {
   Tooltip,
   Typography
 } from "@mui/material";
+import AddRoundedIcon from "@mui/icons-material/AddRounded";
 import DeleteRoundedIcon from "@mui/icons-material/DeleteRounded";
 import EditRoundedIcon from "@mui/icons-material/EditRounded";
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
@@ -74,7 +78,7 @@ const SalesPage = () => {
   });
   const [deleteTarget, setDeleteTarget] = useState<Sale | null>(null);
   const [deleting, setDeleting] = useState(false);
-  const [formOpen, setFormOpen] = useState(true);
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   const loadData = useMemo(
     () =>
@@ -213,6 +217,16 @@ const SalesPage = () => {
     setSaleErrors({});
   };
 
+  const openCreateDialog = () => {
+    resetSaleForm();
+    setDialogOpen(true);
+  };
+
+  const handleFilterChange = (field: keyof typeof filters) => (event: ChangeEvent<HTMLInputElement>) => {
+    const { value } = event.target;
+    setFilters((prev) => ({ ...prev, [field]: value.toString() }));
+  };
+
   const handleSaveSale = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const payload = {
@@ -253,8 +267,9 @@ const SalesPage = () => {
       } else {
         await createSale(payload);
       }
-      resetSaleForm();
       await loadData();
+      resetSaleForm();
+      setDialogOpen(false);
     } catch (error) {
       console.error("Failed to save sale", error);
     } finally {
@@ -272,11 +287,7 @@ const SalesPage = () => {
       price_per_kg: String(sale.price_per_kg),
       notes: sale.notes ?? ""
     });
-  };
-
-  const handleFilterChange = (field: keyof typeof filters) => (event: ChangeEvent<HTMLInputElement>) => {
-    const { value } = event.target;
-    setFilters((prev) => ({ ...prev, [field]: value.toString() }));
+    setDialogOpen(true);
   };
 
   const handleDeleteRequest = (sale: Sale) => {
@@ -306,228 +317,129 @@ const SalesPage = () => {
     }
   };
 
+  const handleDialogClose = () => {
+    if (saleSaving) {
+      return;
+    }
+    setDialogOpen(false);
+    resetSaleForm();
+  };
+
   return (
     <Stack spacing={4}>
-      <Card>
-        <CardHeader
-          title={saleEditingId ? "Editar venta" : "Registrar venta"}
-          action={
-            <Button size="small" onClick={() => setFormOpen((prev) => !prev)}>
-              {formOpen ? "Ocultar" : "Mostrar"}
-            </Button>
-          }
-        />
-        <Collapse in={formOpen} timeout="auto" unmountOnExit>
-          <CardContent>
-            <Box component="form" display="flex" flexDirection="column" gap={2} onSubmit={handleSaveSale}>
-              <TextField
-                select
-                label="Tostion"
-                value={saleForm.roast_batch_id}
-                onChange={(e) => setSaleForm((prev) => ({ ...prev, roast_batch_id: e.target.value }))}
-                required
-              >
-                {roastOptions.map((roast) => {
-                  const lot = lots.find((candidate) => candidate.id === roast.lot_id);
-                  const varietyName = lot
-                    ? varieties.find((variety) => variety.id === lot.variety_id)?.name ?? "Variedad desconocida"
-                    : "Variedad desconocida";
-                  const farmName = lot
-                    ? farms.find((farm) => farm.id === lot.farm_id)?.name ?? "Finca desconocida"
-                    : "Finca desconocida";
-                  const process = lot?.process ?? "Proceso N/D";
-                  const roastDate = new Date(roast.roast_date).toLocaleDateString();
-                  const available = getAvailableRoastedKg(roast.id, saleEditingId);
-
-                  return (
-                    <MenuItem key={roast.id} value={String(roast.id)}>
-                      <Box display="flex" flexDirection="column" alignItems="flex-start">
-                        <Typography variant="body2" fontWeight={600}>
-                          {`Roast #${roast.id} · ${varietyName}`}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          {`${roastDate} · ${process} · ${farmName} · Disponible: ${available.toFixed(2)} kg`}
-                        </Typography>
-                      </Box>
-                    </MenuItem>
-                  );
-                })}
-              </TextField>
-              <TextField
-                select
-                label="Cliente"
-                value={saleForm.customer_id}
-                onChange={(e) => setSaleForm((prev) => ({ ...prev, customer_id: e.target.value }))}
-              >
-                <MenuItem value="">Venta mostrador</MenuItem>
-                {customers.map((customer) => (
-                  <MenuItem key={customer.id} value={customer.id}>
-                    {customer.name}
-                  </MenuItem>
-                ))}
-              </TextField>
-              <TextField
-                label="Fecha"
-                type="date"
-                InputLabelProps={{ shrink: true }}
-                value={saleForm.sale_date}
-                onChange={(e) => setSaleForm((prev) => ({ ...prev, sale_date: e.target.value }))}
-                required
-              />
-              <TextField
-                label="Cantidad (kg)"
-                type="number"
-                value={saleForm.quantity_kg}
-                onChange={(e) => setSaleForm((prev) => ({ ...prev, quantity_kg: e.target.value }))}
-                error={Boolean(saleErrors.quantity)}
-                helperText={
-                  saleErrors.quantity ??
-                  (availableForSelectedRoast != null
-                    ? `Disponible: ${availableForSelectedRoast.toFixed(2)} kg`
-                    : undefined)
-                }
-                inputProps={{ min: 0, step: "0.01" }}
-                required
-              />
-              <TextField
-                label="Precio por kg"
-                type="number"
-                value={saleForm.price_per_kg}
-                onChange={(e) => setSaleForm((prev) => ({ ...prev, price_per_kg: e.target.value }))}
-                error={Boolean(saleErrors.price)}
-                helperText={saleErrors.price}
-                inputProps={{ min: 0, step: "0.01" }}
-                required
-              />
-              <TextField
-                label="Notas"
-                value={saleForm.notes}
-                onChange={(e) => setSaleForm((prev) => ({ ...prev, notes: e.target.value }))}
-                multiline
-                rows={3}
-              />
-              <Box display="flex" gap={2}>
-                <Button type="submit" variant="contained" disabled={saleSaving}>
-                  {saleEditingId ? "Actualizar" : "Guardar venta"}
-                </Button>
-                {saleEditingId && (
-                  <Button variant="outlined" onClick={resetSaleForm} disabled={saleSaving}>
-                    Cancelar
-                  </Button>
-                )}
-              </Box>
-            </Box>
-          </CardContent>
-        </Collapse>
-      </Card>
       <Card sx={{ display: "flex", flexDirection: "column", flexGrow: 1 }}>
         <CardHeader
           title="Historial de ventas"
           subheader={`${filteredSales.length} de ${sales.length} registros`}
+          action={
+            <Button startIcon={<AddRoundedIcon />} variant="contained" onClick={openCreateDialog}>
+              Nueva venta
+            </Button>
+          }
         />
         <CardContent sx={{ flexGrow: 1, overflowX: "auto" }}>
-            <FilterPanel
-              isDirty={isFiltering}
-              onClear={() =>
-                setFilters({
-                  dateFrom: "",
-                  dateTo: "",
-                  roastId: "",
-                  customerId: "",
-                  minQuantity: "",
-                  maxQuantity: "",
-                  minPrice: "",
-                  maxPrice: "",
-                  minTotal: "",
-                  maxTotal: "",
-                  notes: ""
-                })
-              }
+          <FilterPanel
+            isDirty={isFiltering}
+            onClear={() =>
+              setFilters({
+                dateFrom: "",
+                dateTo: "",
+                roastId: "",
+                customerId: "",
+                minQuantity: "",
+                maxQuantity: "",
+                minPrice: "",
+                maxPrice: "",
+                minTotal: "",
+                maxTotal: "",
+                notes: ""
+              })
+            }
+          >
+            <TextField
+              label="Desde"
+              type="date"
+              InputLabelProps={{ shrink: true }}
+              value={filters.dateFrom}
+              onChange={handleFilterChange("dateFrom")}
+            />
+            <TextField
+              label="Hasta"
+              type="date"
+              InputLabelProps={{ shrink: true }}
+              value={filters.dateTo}
+              onChange={handleFilterChange("dateTo")}
+            />
+            <TextField
+              select
+              label="Tostion"
+              value={filters.roastId}
+              onChange={handleFilterChange("roastId")}
             >
-              <TextField
-                label="Desde"
-                type="date"
-                InputLabelProps={{ shrink: true }}
-                value={filters.dateFrom}
-                onChange={handleFilterChange("dateFrom")}
-              />
-              <TextField
-                label="Hasta"
-                type="date"
-                InputLabelProps={{ shrink: true }}
-                value={filters.dateTo}
-                onChange={handleFilterChange("dateTo")}
-              />
-              <TextField
-                select
-                label="Tostion"
-                value={filters.roastId}
-                onChange={handleFilterChange("roastId")}
-              >
-                <MenuItem value="">Todas</MenuItem>
-                {roasts.map((roast) => (
-                  <MenuItem key={roast.id} value={String(roast.id)}>
-                    Roast #{roast.id}
-                  </MenuItem>
-                ))}
-              </TextField>
-              <TextField
-                select
-                label="Cliente"
-                value={filters.customerId}
-                onChange={handleFilterChange("customerId")}
-              >
-                <MenuItem value="">Todos</MenuItem>
-                <MenuItem value="none">Venta mostrador</MenuItem>
-                {customers.map((customer) => (
-                  <MenuItem key={customer.id} value={String(customer.id)}>
-                    {customer.name}
-                  </MenuItem>
-                ))}
-              </TextField>
-              <TextField
-                label="Kg minimo"
-                type="number"
-                value={filters.minQuantity}
-                onChange={handleFilterChange("minQuantity")}
-              />
-              <TextField
-                label="Kg maximo"
-                type="number"
-                value={filters.maxQuantity}
-                onChange={handleFilterChange("maxQuantity")}
-              />
-              <TextField
-                label="Precio minimo"
-                type="number"
-                value={filters.minPrice}
-                onChange={handleFilterChange("minPrice")}
-              />
-              <TextField
-                label="Precio maximo"
-                type="number"
-                value={filters.maxPrice}
-                onChange={handleFilterChange("maxPrice")}
-              />
-              <TextField
-                label="Total minimo"
-                type="number"
-                value={filters.minTotal}
-                onChange={handleFilterChange("minTotal")}
-              />
-              <TextField
-                label="Total maximo"
-                type="number"
-                value={filters.maxTotal}
-                onChange={handleFilterChange("maxTotal")}
-              />
-              <TextField
-                label="Notas"
-                value={filters.notes}
-                onChange={handleFilterChange("notes")}
-                placeholder="Buscar en notas"
-              />
-            </FilterPanel>
+              <MenuItem value="">Todas</MenuItem>
+              {roasts.map((roast) => (
+                <MenuItem key={roast.id} value={String(roast.id)}>
+                  Roast #{roast.id}
+                </MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              select
+              label="Cliente"
+              value={filters.customerId}
+              onChange={handleFilterChange("customerId")}
+            >
+              <MenuItem value="">Todos</MenuItem>
+              <MenuItem value="none">Venta mostrador</MenuItem>
+              {customers.map((customer) => (
+                <MenuItem key={customer.id} value={String(customer.id)}>
+                  {customer.name}
+                </MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              label="Kg minimo"
+              type="number"
+              value={filters.minQuantity}
+              onChange={handleFilterChange("minQuantity")}
+            />
+            <TextField
+              label="Kg maximo"
+              type="number"
+              value={filters.maxQuantity}
+              onChange={handleFilterChange("maxQuantity")}
+            />
+            <TextField
+              label="Precio minimo"
+              type="number"
+              value={filters.minPrice}
+              onChange={handleFilterChange("minPrice")}
+            />
+            <TextField
+              label="Precio maximo"
+              type="number"
+              value={filters.maxPrice}
+              onChange={handleFilterChange("maxPrice")}
+            />
+            <TextField
+              label="Total minimo"
+              type="number"
+              value={filters.minTotal}
+              onChange={handleFilterChange("minTotal")}
+            />
+            <TextField
+              label="Total maximo"
+              type="number"
+              value={filters.maxTotal}
+              onChange={handleFilterChange("maxTotal")}
+            />
+            <TextField
+              label="Notas"
+              value={filters.notes}
+              onChange={handleFilterChange("notes")}
+              placeholder="Buscar en notas"
+            />
+          </FilterPanel>
           <Table size="small" stickyHeader>
             <TableHead>
               <TableRow>
@@ -622,11 +534,8 @@ const SalesPage = () => {
               )}
             </TableBody>
           </Table>
-          </CardContent>
+        </CardContent>
       </Card>
-      <Typography variant="body2" color="text.secondary">
-        ¿Necesitas crear o editar clientes? Usa la seccion dedicada en el menu "Clientes".
-      </Typography>
       <ConfirmDialog
         open={Boolean(deleteTarget)}
         title="Eliminar venta"
@@ -640,6 +549,107 @@ const SalesPage = () => {
         confirmLabel="Eliminar"
         loading={deleting}
       />
+      <Dialog open={dialogOpen} onClose={handleDialogClose} fullWidth maxWidth="md">
+        <DialogTitle>{saleEditingId ? "Editar venta" : "Registrar venta"}</DialogTitle>
+        <Box component="form" id="sale-form" onSubmit={handleSaveSale} display="flex" flexDirection="column" gap={0}>
+          <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            <TextField
+              select
+              label="Tostion"
+              value={saleForm.roast_batch_id}
+              onChange={(e) => setSaleForm((prev) => ({ ...prev, roast_batch_id: e.target.value }))}
+              required
+            >
+              {roastOptions.map((roast) => {
+                const lot = lots.find((candidate) => candidate.id === roast.lot_id);
+                const varietyName = lot
+                  ? varieties.find((variety) => variety.id === lot.variety_id)?.name ?? "Variedad desconocida"
+                  : "Variedad desconocida";
+                const farmName = lot
+                  ? farms.find((farm) => farm.id === lot.farm_id)?.name ?? "Finca desconocida"
+                  : "Finca desconocida";
+                const process = lot?.process ?? "Proceso N/D";
+                const roastDate = new Date(roast.roast_date).toLocaleDateString();
+                const available = getAvailableRoastedKg(roast.id, saleEditingId);
+
+                return (
+                  <MenuItem key={roast.id} value={String(roast.id)}>
+                    <Box display="flex" flexDirection="column" alignItems="flex-start">
+                      <Typography variant="body2" fontWeight={600}>
+                        {`Roast #${roast.id} · ${varietyName}`}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {`${roastDate} · ${process} · ${farmName} · Disponible: ${available.toFixed(2)} kg`}
+                      </Typography>
+                    </Box>
+                  </MenuItem>
+                );
+              })}
+            </TextField>
+            <TextField
+              select
+              label="Cliente"
+              value={saleForm.customer_id}
+              onChange={(e) => setSaleForm((prev) => ({ ...prev, customer_id: e.target.value }))}
+            >
+              <MenuItem value="">Venta mostrador</MenuItem>
+              {customers.map((customer) => (
+                <MenuItem key={customer.id} value={String(customer.id)}>
+                  {customer.name}
+                </MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              label="Fecha"
+              type="date"
+              InputLabelProps={{ shrink: true }}
+              value={saleForm.sale_date}
+              onChange={(e) => setSaleForm((prev) => ({ ...prev, sale_date: e.target.value }))}
+              required
+            />
+            <TextField
+              label="Cantidad (kg)"
+              type="number"
+              value={saleForm.quantity_kg}
+              onChange={(e) => setSaleForm((prev) => ({ ...prev, quantity_kg: e.target.value }))}
+              error={Boolean(saleErrors.quantity)}
+              helperText={
+                saleErrors.quantity ??
+                (availableForSelectedRoast != null
+                  ? `Disponible: ${availableForSelectedRoast.toFixed(2)} kg`
+                  : undefined)
+              }
+              inputProps={{ min: 0, step: "0.01" }}
+              required
+            />
+            <TextField
+              label="Precio por kg"
+              type="number"
+              value={saleForm.price_per_kg}
+              onChange={(e) => setSaleForm((prev) => ({ ...prev, price_per_kg: e.target.value }))}
+              error={Boolean(saleErrors.price)}
+              helperText={saleErrors.price}
+              inputProps={{ min: 0, step: "0.01" }}
+              required
+            />
+            <TextField
+              label="Notas"
+              value={saleForm.notes}
+              onChange={(e) => setSaleForm((prev) => ({ ...prev, notes: e.target.value }))}
+              multiline
+              rows={3}
+            />
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={handleDialogClose} disabled={saleSaving}>
+              Cancelar
+            </Button>
+            <Button type="submit" variant="contained" disabled={saleSaving}>
+              {saleEditingId ? "Actualizar" : "Crear"}
+            </Button>
+          </DialogActions>
+        </Box>
+      </Dialog>
     </Stack>
   );
 };
