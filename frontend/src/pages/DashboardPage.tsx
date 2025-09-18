@@ -5,8 +5,10 @@ import {
   CardContent,
   CardHeader,
   Chip,
+  Divider,
   Grid,
   LinearProgress,
+  Slider,
   Stack,
   Typography
 } from "@mui/material";
@@ -28,6 +30,7 @@ const formatKg = (value: number) => `${value.toFixed(2)} kg`;
 
 const DashboardPage = () => {
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
+  const [projectionPercent, setProjectionPercent] = useState(100);
 
   useEffect(() => {
     const loadSummary = async () => {
@@ -58,6 +61,15 @@ const DashboardPage = () => {
     };
   }, [summary]);
 
+  const dynamicProjection = useMemo(() => {
+    if (!summary) {
+      return { kilos: 0, value: 0 };
+    }
+    const kilos = (summary.inventory.roasted_available_kg * projectionPercent) / 100;
+    const value = kilos * summary.financials.average_price_per_kg;
+    return { kilos, value };
+  }, [summary, projectionPercent]);
+
   if (!summary) {
     return (
       <Card>
@@ -72,9 +84,70 @@ const DashboardPage = () => {
   const inventory = summary.inventory;
   const financials = summary.financials;
   const roastStats = summary.roasts;
+  const profitMargin = financials.total_sales > 0 ? (financials.net_profit / financials.total_sales) * 100 : 0;
+  const expenseRatio = financials.total_sales > 0 ? (financials.total_expenses / financials.total_sales) * 100 : 0;
+  const greenUtilization = roastStats.total_green_purchased > 0
+    ? (roastStats.total_roasted_produced / roastStats.total_green_purchased) * 100
+    : 0;
 
   return (
     <Grid container spacing={3}>
+      <Grid item xs={12}>
+        <Grid container spacing={3}>
+          <Grid item xs={12} md={3}>
+            <Card>
+              <CardContent>
+                <Stack spacing={1}>
+                  <Typography variant="overline">Margen neto</Typography>
+                  <Typography variant="h4">{profitMargin.toFixed(1)}%</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Utilidad frente a ventas totales
+                  </Typography>
+                </Stack>
+              </CardContent>
+            </Card>
+          </Grid>
+          <Grid item xs={12} md={3}>
+            <Card>
+              <CardContent>
+                <Stack spacing={1}>
+                  <Typography variant="overline">Gastos / Ventas</Typography>
+                  <Typography variant="h4">{expenseRatio.toFixed(1)}%</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Controla el peso de los gastos generales
+                  </Typography>
+                </Stack>
+              </CardContent>
+            </Card>
+          </Grid>
+          <Grid item xs={12} md={3}>
+            <Card>
+              <CardContent>
+                <Stack spacing={1}>
+                  <Typography variant="overline">Promedio venta por kg</Typography>
+                  <Typography variant="h4">{formatCurrency(financials.average_price_per_kg)}</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Basado en las ventas registradas
+                  </Typography>
+                </Stack>
+              </CardContent>
+            </Card>
+          </Grid>
+          <Grid item xs={12} md={3}>
+            <Card>
+              <CardContent>
+                <Stack spacing={1}>
+                  <Typography variant="overline">Uso del verde</Typography>
+                  <Typography variant="h4">{greenUtilization.toFixed(1)}%</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Proporción tostada vs comprada
+                  </Typography>
+                </Stack>
+              </CardContent>
+            </Card>
+          </Grid>
+        </Grid>
+      </Grid>
       <Grid item xs={12} lg={8}>
         <Card>
           <CardHeader
@@ -142,11 +215,48 @@ const DashboardPage = () => {
                       <Typography variant="body2" color="text.secondary">
                         Inventario tostado disponible: {formatKg(projections.roastedAvailable)}
                       </Typography>
+                      <Box>
+                        <Stack direction="row" spacing={1} alignItems="center" mb={1}>
+                          <Chip
+                            label="25%"
+                            onClick={() => setProjectionPercent(25)}
+                            variant={projectionPercent === 25 ? "filled" : "outlined"}
+                          />
+                          <Chip
+                            label="50%"
+                            onClick={() => setProjectionPercent(50)}
+                            variant={projectionPercent === 50 ? "filled" : "outlined"}
+                          />
+                          <Chip
+                            label="75%"
+                            onClick={() => setProjectionPercent(75)}
+                            variant={projectionPercent === 75 ? "filled" : "outlined"}
+                          />
+                          <Chip
+                            label="100%"
+                            onClick={() => setProjectionPercent(100)}
+                            variant={projectionPercent === 100 ? "filled" : "outlined"}
+                          />
+                        </Stack>
+                        <Slider
+                          value={projectionPercent}
+                          onChange={(_, value) => setProjectionPercent(value as number)}
+                          min={0}
+                          max={100}
+                          step={5}
+                          valueLabelDisplay="auto"
+                        />
+                      </Box>
                       <Typography variant="body1">
-                        Vender todo: <strong>{formatCurrency(projections.fullValue)}</strong>
+                        Proyección {projectionPercent}%: <strong>{formatCurrency(dynamicProjection.value)}</strong>
                       </Typography>
-                      <Typography variant="body1">
-                        Vender 50%: <strong>{formatCurrency(projections.halfValue)}</strong>
+                      <Typography variant="body2" color="text.secondary">
+                        Equivale a {formatKg(dynamicProjection.kilos)} a precio promedio
+                      </Typography>
+                      <Divider sx={{ my: 1 }} />
+                      <Typography variant="body2" color="text.secondary">
+                        Vender todo: {formatCurrency(projections.fullValue)} · Vender 50%: {" "}
+                        {formatCurrency(projections.halfValue)}
                       </Typography>
                     </Stack>
                   </CardContent>
@@ -224,6 +334,9 @@ const DashboardPage = () => {
                 <Stack>
                   <Typography variant="overline">Tostado vendido</Typography>
                   <Typography variant="h5">{formatKg(roastStats.total_roasted_sold)}</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Diferencia inventario: {formatKg(roastStats.total_roasted_produced - roastStats.total_roasted_sold)}
+                  </Typography>
                 </Stack>
               </Grid>
             </Grid>
