@@ -21,8 +21,18 @@ import DeleteRoundedIcon from "@mui/icons-material/DeleteRounded";
 import EditRoundedIcon from "@mui/icons-material/EditRounded";
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 
-import { createSale, deleteSale, fetchCustomers, fetchRoasts, fetchSales, updateSale } from "../services/api";
-import type { Customer, RoastBatch, Sale } from "../types";
+import {
+  createSale,
+  deleteSale,
+  fetchCustomers,
+  fetchFarms,
+  fetchLots,
+  fetchRoasts,
+  fetchSales,
+  fetchVarieties,
+  updateSale
+} from "../services/api";
+import type { Customer, Farm, RoastBatch, Sale, Variety, CoffeeLot } from "../types";
 import ConfirmDialog from "../components/ConfirmDialog";
 import FilterPanel from "../components/FilterPanel";
 
@@ -39,6 +49,9 @@ const SalesPage = () => {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [roasts, setRoasts] = useState<RoastBatch[]>([]);
   const [sales, setSales] = useState<Sale[]>([]);
+  const [lots, setLots] = useState<CoffeeLot[]>([]);
+  const [varieties, setVarieties] = useState<Variety[]>([]);
+  const [farms, setFarms] = useState<Farm[]>([]);
 
   const [saleForm, setSaleForm] = useState(buildEmptySaleForm);
   const [saleEditingId, setSaleEditingId] = useState<number | null>(null);
@@ -65,14 +78,20 @@ const SalesPage = () => {
     () =>
       async () => {
         try {
-          const [customersRes, roastsRes, salesRes] = await Promise.all([
+          const [customersRes, roastsRes, salesRes, lotsRes, varietiesRes, farmsRes] = await Promise.all([
             fetchCustomers(),
             fetchRoasts(),
-            fetchSales()
+            fetchSales(),
+            fetchLots(),
+            fetchVarieties(),
+            fetchFarms()
           ]);
           setCustomers(customersRes.data as Customer[]);
           setRoasts(roastsRes.data as RoastBatch[]);
           setSales(salesRes.data as Sale[]);
+          setLots(lotsRes.data as CoffeeLot[]);
+          setVarieties(varietiesRes.data as Variety[]);
+          setFarms(farmsRes.data as Farm[]);
         } catch (error) {
           console.error("Failed to load sales data", error);
         }
@@ -296,11 +315,31 @@ const SalesPage = () => {
                 onChange={(e) => setSaleForm((prev) => ({ ...prev, roast_batch_id: e.target.value }))}
                 required
               >
-                {roasts.map((roast) => (
-                  <MenuItem key={roast.id} value={roast.id}>
-                    Roast #{roast.id} - {roast.roast_date}
-                  </MenuItem>
-                ))}
+                {roasts.map((roast) => {
+                  const lot = lots.find((candidate) => candidate.id === roast.lot_id);
+                  const varietyName = lot
+                    ? varieties.find((variety) => variety.id === lot.variety_id)?.name ?? "Variedad desconocida"
+                    : "Variedad desconocida";
+                  const farmName = lot
+                    ? farms.find((farm) => farm.id === lot.farm_id)?.name ?? "Finca desconocida"
+                    : "Finca desconocida";
+                  const process = lot?.process ?? "Proceso N/D";
+                  const roastDate = new Date(roast.roast_date).toLocaleDateString();
+                  const available = getAvailableRoastedKg(roast.id, saleEditingId);
+
+                  return (
+                    <MenuItem key={roast.id} value={String(roast.id)}>
+                      <Box display="flex" flexDirection="column" alignItems="flex-start">
+                        <Typography variant="body2" fontWeight={600}>
+                          {`Roast #${roast.id} · ${varietyName}`}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {`${roastDate} · ${process} · ${farmName} · Disponible: ${available.toFixed(2)} kg`}
+                        </Typography>
+                      </Box>
+                    </MenuItem>
+                  );
+                })}
               </TextField>
               <TextField
                 select
