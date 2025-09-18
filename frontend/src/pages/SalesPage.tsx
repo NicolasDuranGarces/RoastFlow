@@ -37,6 +37,7 @@ import {
   updateSale
 } from "../services/api";
 import type { Customer, Farm, RoastBatch, Sale, Variety, CoffeeLot } from "../types";
+import { useLocation, useNavigate } from "react-router-dom";
 import ConfirmDialog from "../components/ConfirmDialog";
 import FilterPanel from "../components/FilterPanel";
 
@@ -52,6 +53,8 @@ const buildEmptySaleForm = () => ({
 const MIN_AVAILABLE_ROAST_KG = 0.1;
 
 const SalesPage = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [roasts, setRoasts] = useState<RoastBatch[]>([]);
   const [sales, setSales] = useState<Sale[]>([]);
@@ -74,7 +77,8 @@ const SalesPage = () => {
     maxPrice: "",
     minTotal: "",
     maxTotal: "",
-    notes: ""
+    notes: "",
+    varietyId: ""
   });
   const [deleteTarget, setDeleteTarget] = useState<Sale | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -108,6 +112,14 @@ const SalesPage = () => {
   useEffect(() => {
     void loadData();
   }, [loadData]);
+
+  useEffect(() => {
+    const state = location.state as { prefilters?: Partial<typeof filters> } | undefined;
+    if (state?.prefilters) {
+      setFilters((prev) => ({ ...prev, ...state.prefilters }));
+      navigate(location.pathname, { replace: true });
+    }
+  }, [location, navigate]);
 
   const getAvailableRoastedKg = (roastId: number, ignoreSaleId: number | null) => {
     const roast = roasts.find((candidate) => candidate.id === roastId);
@@ -202,9 +214,19 @@ const SalesPage = () => {
       if (filters.notes && !(sale.notes ?? "").toLowerCase().includes(filters.notes.toLowerCase())) {
         return false;
       }
+      if (filters.varietyId) {
+        const roast = roasts.find((candidate) => candidate.id === sale.roast_batch_id);
+        if (!roast) {
+          return false;
+        }
+        const lot = lots.find((candidate) => candidate.id === roast.lot_id);
+        if (!lot || String(lot.variety_id) !== filters.varietyId) {
+          return false;
+        }
+      }
       return true;
     });
-  }, [filters, sales]);
+  }, [filters, sales, roasts, lots]);
 
   const isFiltering = useMemo(
     () => Object.values(filters).some((value) => value.toString().trim() !== ""),
@@ -352,7 +374,8 @@ const SalesPage = () => {
                 maxPrice: "",
                 minTotal: "",
                 maxTotal: "",
-                notes: ""
+                notes: "",
+                varietyId: ""
               })
             }
           >
@@ -439,6 +462,19 @@ const SalesPage = () => {
               onChange={handleFilterChange("notes")}
               placeholder="Buscar en notas"
             />
+            <TextField
+              select
+              label="Variedad"
+              value={filters.varietyId}
+              onChange={handleFilterChange("varietyId")}
+            >
+              <MenuItem value="">Todas</MenuItem>
+              {varieties.map((variety) => (
+                <MenuItem key={variety.id} value={String(variety.id)}>
+                  {variety.name}
+                </MenuItem>
+              ))}
+            </TextField>
           </FilterPanel>
           <Table size="small" stickyHeader>
             <TableHead>

@@ -70,18 +70,20 @@ const MainLayout = () => {
             width: drawerWidth,
             boxSizing: "border-box",
             borderRight: 0,
-            background: "linear-gradient(180deg, #101827 0%, #172036 100%)",
-            color: "#f9fafb",
+            borderRadius: 0,
+            backgroundColor: "#0b1220",
+            color: "#f3f4f6",
             display: "flex",
             flexDirection: "column",
-            px: 2.5,
+            px: 2,
             py: 3,
-            gap: 3
+            gap: 3,
+            boxShadow: "0 0 25px rgba(15, 23, 42, 0.35)"
           }
         }}
       >
         <Stack spacing={1} sx={{ pt: 1 }}>
-          <Typography variant="h5" fontWeight={700} letterSpacing={0.6}>
+          <Typography variant="h5" fontWeight={700} letterSpacing={0.4}>
             RoastSync
           </Typography>
           <Typography variant="body2" sx={{ opacity: 0.75 }}>
@@ -101,15 +103,15 @@ const MainLayout = () => {
                   to={item.to}
                   sx={{
                     px: 2,
-                    py: 1.4,
+                    py: 1.3,
                     gap: 1.5,
-                    borderRadius: 2,
-                    mb: 0.5,
-                    backgroundColor: isActive ? "rgba(255,255,255,0.16)" : "transparent",
-                    color: isActive ? "secondary.main" : "rgba(249,250,251,0.85)",
+                    borderRadius: 0,
+                    mb: 0.25,
+                    backgroundColor: isActive ? "rgba(249,250,251,0.14)" : "transparent",
+                    color: isActive ? "secondary.main" : "rgba(243,244,246,0.85)",
                     transition: "all 0.2s ease",
                     '&:hover': {
-                      backgroundColor: "rgba(255,255,255,0.22)",
+                      backgroundColor: "rgba(249,250,251,0.18)",
                       color: "secondary.main"
                     }
                   }}

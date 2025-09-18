@@ -23,7 +23,9 @@ import {
 import AddRoundedIcon from "@mui/icons-material/AddRounded";
 import DeleteRoundedIcon from "@mui/icons-material/DeleteRounded";
 import EditRoundedIcon from "@mui/icons-material/EditRounded";
+import ShoppingCartRoundedIcon from "@mui/icons-material/ShoppingCartRounded";
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 
 import { createRoast, deleteRoast, fetchFarms, fetchLots, fetchRoasts, fetchVarieties, updateRoast } from "../services/api";
 import type { CoffeeLot, Farm, RoastBatch, Variety } from "../types";
@@ -42,6 +44,8 @@ const initialForm = {
 const MIN_AVAILABLE_GREEN_KG = 0.2;
 
 const RoastsPage = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [lots, setLots] = useState<CoffeeLot[]>([]);
   const [farms, setFarms] = useState<Farm[]>([]);
   const [varieties, setVarieties] = useState<Variety[]>([]);
@@ -58,7 +62,8 @@ const RoastsPage = () => {
     maxGreen: "",
     minRoasted: "",
     maxRoasted: "",
-    roastLevel: ""
+    roastLevel: "",
+    varietyId: ""
   });
   const [deleteTarget, setDeleteTarget] = useState<RoastBatch | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -88,6 +93,14 @@ const RoastsPage = () => {
   useEffect(() => {
     void loadData();
   }, [loadData]);
+
+  useEffect(() => {
+    const state = location.state as { prefilters?: Partial<typeof filters> } | undefined;
+    if (state?.prefilters) {
+      setFilters((prev) => ({ ...prev, ...state.prefilters }));
+      navigate(location.pathname, { replace: true });
+    }
+  }, [location, navigate]);
 
   const getAvailableGreenKg = (lotId: number, ignoreRoastId: number | null) => {
     const lot = lots.find((candidate) => candidate.id === lotId);
@@ -161,9 +174,15 @@ const RoastsPage = () => {
       if (filters.roastLevel && !(roast.roast_level ?? "").toLowerCase().includes(filters.roastLevel.toLowerCase())) {
         return false;
       }
+      if (filters.varietyId) {
+        const lot = lots.find((candidate) => candidate.id === roast.lot_id);
+        if (!lot || String(lot.variety_id) !== filters.varietyId) {
+          return false;
+        }
+      }
       return true;
     });
-  }, [filters, roasts]);
+  }, [filters, roasts, lots]);
 
   const isFiltering = useMemo(
     () => Object.values(filters).some((value) => value.toString().trim() !== ""),
@@ -308,7 +327,8 @@ const RoastsPage = () => {
                 maxGreen: "",
                 minRoasted: "",
                 maxRoasted: "",
-                roastLevel: ""
+                roastLevel: "",
+                varietyId: ""
               })
             }
           >
@@ -380,6 +400,19 @@ const RoastsPage = () => {
               onChange={handleFilterChange("roastLevel")}
               placeholder="Filtrar por nivel"
             />
+            <TextField
+              select
+              label="Variedad"
+              value={filters.varietyId}
+              onChange={handleFilterChange("varietyId")}
+            >
+              <MenuItem value="">Todas</MenuItem>
+              {varieties.map((variety) => (
+                <MenuItem key={variety.id} value={String(variety.id)}>
+                  {variety.name}
+                </MenuItem>
+              ))}
+            </TextField>
           </FilterPanel>
           <Table size="small" stickyHeader>
             <TableHead>
@@ -446,16 +479,30 @@ const RoastsPage = () => {
                       <TableCell align="right">{roast.roasted_output_kg.toFixed(2)}</TableCell>
                       <TableCell align="right">{roast.shrinkage_pct.toFixed(2)}%</TableCell>
                       <TableCell align="right">
-                        <Tooltip title="Editar">
-                          <IconButton color="primary" onClick={() => handleEdit(roast)}>
-                            <EditRoundedIcon />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Eliminar">
-                          <IconButton color="error" onClick={() => handleDeleteRequest(roast)}>
-                            <DeleteRoundedIcon />
-                          </IconButton>
-                        </Tooltip>
+                        <Stack direction="row" spacing={1} justifyContent="flex-end">
+                          <Tooltip title="Ver ventas relacionadas">
+                            <IconButton
+                              size="small"
+                              onClick={() =>
+                                navigate("/sales", {
+                                  state: { prefilters: { roastId: String(roast.id) } }
+                                })
+                              }
+                            >
+                              <ShoppingCartRoundedIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Editar">
+                            <IconButton color="primary" size="small" onClick={() => handleEdit(roast)}>
+                              <EditRoundedIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Eliminar">
+                            <IconButton color="error" size="small" onClick={() => handleDeleteRequest(roast)}>
+                              <DeleteRoundedIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        </Stack>
                       </TableCell>
                     </TableRow>
                   );

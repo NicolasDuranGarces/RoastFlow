@@ -22,7 +22,11 @@ import {
 import AddRoundedIcon from "@mui/icons-material/AddRounded";
 import DeleteRoundedIcon from "@mui/icons-material/DeleteRounded";
 import EditRoundedIcon from "@mui/icons-material/EditRounded";
+import Inventory2RoundedIcon from "@mui/icons-material/Inventory2Rounded";
+import LocalFireDepartmentRoundedIcon from "@mui/icons-material/LocalFireDepartmentRounded";
+import ShoppingCartRoundedIcon from "@mui/icons-material/ShoppingCartRounded";
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 import { createVariety, deleteVariety, fetchVarieties, updateVariety } from "../services/api";
 import type { Variety } from "../types";
@@ -32,6 +36,7 @@ import FilterPanel from "../components/FilterPanel";
 const emptyForm = { name: "", description: "" };
 
 const VarietiesPage = () => {
+  const navigate = useNavigate();
   const [varieties, setVarieties] = useState<Variety[]>([]);
   const [form, setForm] = useState(emptyForm);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -199,16 +204,48 @@ const VarietiesPage = () => {
                     <TableCell>{variety.name}</TableCell>
                     <TableCell>{variety.description}</TableCell>
                     <TableCell align="right">
-                      <Tooltip title="Editar">
-                        <IconButton color="primary" onClick={() => handleEdit(variety)}>
-                          <EditRoundedIcon />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Eliminar">
-                        <IconButton color="error" onClick={() => handleDeleteRequest(variety)}>
-                          <DeleteRoundedIcon />
-                        </IconButton>
-                      </Tooltip>
+                      <Stack direction="row" spacing={1} justifyContent="flex-end">
+                        <Tooltip title="Ver lotes">
+                          <IconButton
+                            size="small"
+                            onClick={() =>
+                              navigate("/lots", { state: { prefilters: { varietyId: String(variety.id) } } })
+                            }
+                          >
+                            <Inventory2RoundedIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Ver tostiones">
+                          <IconButton
+                            size="small"
+                            onClick={() =>
+                              navigate("/roasts", { state: { prefilters: { varietyId: String(variety.id) } } })
+                            }
+                          >
+                            <LocalFireDepartmentRoundedIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Ver ventas">
+                          <IconButton
+                            size="small"
+                            onClick={() =>
+                              navigate("/sales", { state: { prefilters: { varietyId: String(variety.id) } } })
+                            }
+                          >
+                            <ShoppingCartRoundedIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Editar">
+                          <IconButton color="primary" size="small" onClick={() => handleEdit(variety)}>
+                            <EditRoundedIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Eliminar">
+                          <IconButton color="error" size="small" onClick={() => handleDeleteRequest(variety)}>
+                            <DeleteRoundedIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      </Stack>
                     </TableCell>
                   </TableRow>
                 ))}
