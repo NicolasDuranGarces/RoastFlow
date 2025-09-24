@@ -41,16 +41,22 @@ import { useLocation, useNavigate } from "react-router-dom";
 import ConfirmDialog from "../components/ConfirmDialog";
 import FilterPanel from "../components/FilterPanel";
 
+const formatGrams = (value: number) =>
+  value.toLocaleString("es-CO", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+
+const formatPricePerGram = (value: number) =>
+  value.toLocaleString("es-CO", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
 const buildEmptySaleForm = () => ({
   roast_batch_id: "",
   customer_id: "",
   sale_date: new Date().toISOString().slice(0, 10),
-  quantity_kg: "",
-  price_per_kg: "",
+  quantity_g: "",
+  price_per_g: "",
   notes: ""
 });
 
-const MIN_AVAILABLE_ROAST_KG = 0.1;
+const MIN_AVAILABLE_ROAST_G = 100;
 
 const SalesPage = () => {
   const navigate = useNavigate();
@@ -121,7 +127,7 @@ const SalesPage = () => {
     }
   }, [location, navigate]);
 
-  const getAvailableRoastedKg = (roastId: number, ignoreSaleId: number | null) => {
+  const getAvailableRoastedGrams = (roastId: number, ignoreSaleId: number | null) => {
     const roast = roasts.find((candidate) => candidate.id === roastId);
     if (!roast) {
       return 0;
@@ -133,25 +139,25 @@ const SalesPage = () => {
       if (ignoreSaleId && current.id === ignoreSaleId) {
         return total;
       }
-      return total + current.quantity_kg;
+      return total + current.quantity_g;
     }, 0);
-    return Math.max(0, roast.roasted_output_kg - used);
+    return Math.max(0, roast.roasted_output_g - used);
   };
 
   const availableForSelectedRoast = useMemo(() => {
     if (!saleForm.roast_batch_id) {
       return null;
     }
-    return getAvailableRoastedKg(Number(saleForm.roast_batch_id), saleEditingId);
+    return getAvailableRoastedGrams(Number(saleForm.roast_batch_id), saleEditingId);
   }, [saleForm.roast_batch_id, saleEditingId, roasts, sales]);
 
   const roastOptions = useMemo(() => {
     return roasts.filter((roast) => {
-      const available = getAvailableRoastedKg(roast.id, saleEditingId);
+      const available = getAvailableRoastedGrams(roast.id, saleEditingId);
       if (saleEditingId && Number(saleForm.roast_batch_id) === roast.id) {
         return true;
       }
-      return available >= MIN_AVAILABLE_ROAST_KG;
+      return available >= MIN_AVAILABLE_ROAST_G;
     });
   }, [roasts, sales, saleEditingId, saleForm.roast_batch_id]);
 
@@ -177,25 +183,25 @@ const SalesPage = () => {
       }
       if (filters.minQuantity) {
         const minQuantity = Number(filters.minQuantity);
-        if (!Number.isNaN(minQuantity) && sale.quantity_kg < minQuantity) {
+        if (!Number.isNaN(minQuantity) && sale.quantity_g < minQuantity) {
           return false;
         }
       }
       if (filters.maxQuantity) {
         const maxQuantity = Number(filters.maxQuantity);
-        if (!Number.isNaN(maxQuantity) && sale.quantity_kg > maxQuantity) {
+        if (!Number.isNaN(maxQuantity) && sale.quantity_g > maxQuantity) {
           return false;
         }
       }
       if (filters.minPrice) {
         const minPrice = Number(filters.minPrice);
-        if (!Number.isNaN(minPrice) && sale.price_per_kg < minPrice) {
+        if (!Number.isNaN(minPrice) && sale.price_per_g < minPrice) {
           return false;
         }
       }
       if (filters.maxPrice) {
         const maxPrice = Number(filters.maxPrice);
-        if (!Number.isNaN(maxPrice) && sale.price_per_kg > maxPrice) {
+        if (!Number.isNaN(maxPrice) && sale.price_per_g > maxPrice) {
           return false;
         }
       }
@@ -255,25 +261,25 @@ const SalesPage = () => {
       roast_batch_id: Number(saleForm.roast_batch_id),
       customer_id: saleForm.customer_id ? Number(saleForm.customer_id) : null,
       sale_date: saleForm.sale_date,
-      quantity_kg: Number(saleForm.quantity_kg),
-      price_per_kg: Number(saleForm.price_per_kg),
+      quantity_g: Number(saleForm.quantity_g),
+      price_per_g: Number(saleForm.price_per_g),
       notes: saleForm.notes
     };
 
     const errors: { quantity?: string; price?: string } = {};
-    if (!payload.quantity_kg || Number.isNaN(payload.quantity_kg) || payload.quantity_kg <= 0) {
+    if (!payload.quantity_g || Number.isNaN(payload.quantity_g) || payload.quantity_g <= 0) {
       errors.quantity = "Ingresa una cantidad mayor a cero";
     }
 
-    if (payload.roast_batch_id && payload.quantity_kg > 0) {
-      const available = getAvailableRoastedKg(payload.roast_batch_id, saleEditingId);
-      if (payload.quantity_kg > available) {
-        errors.quantity = `Solo hay ${available.toFixed(2)} kg tostados disponibles`;
+    if (payload.roast_batch_id && payload.quantity_g > 0) {
+      const available = getAvailableRoastedGrams(payload.roast_batch_id, saleEditingId);
+      if (payload.quantity_g > available) {
+        errors.quantity = `Solo hay ${formatGrams(available)} g tostados disponibles`;
       }
     }
 
-    if (!payload.price_per_kg || Number.isNaN(payload.price_per_kg) || payload.price_per_kg <= 0) {
-      errors.price = "Ingresa un precio por kg válido";
+    if (!payload.price_per_g || Number.isNaN(payload.price_per_g) || payload.price_per_g <= 0) {
+      errors.price = "Ingresa un precio por gramo válido";
     }
 
     if (Object.keys(errors).length > 0) {
@@ -305,8 +311,8 @@ const SalesPage = () => {
       roast_batch_id: String(sale.roast_batch_id),
       customer_id: sale.customer_id ? String(sale.customer_id) : "",
       sale_date: sale.sale_date,
-      quantity_kg: String(sale.quantity_kg),
-      price_per_kg: String(sale.price_per_kg),
+      quantity_g: String(sale.quantity_g),
+      price_per_g: String(sale.price_per_g),
       notes: sale.notes ?? ""
     });
     setDialogOpen(true);
@@ -421,25 +427,25 @@ const SalesPage = () => {
               ))}
             </TextField>
             <TextField
-              label="Kg minimo"
+              label="Gramos mínimos"
               type="number"
               value={filters.minQuantity}
               onChange={handleFilterChange("minQuantity")}
             />
             <TextField
-              label="Kg maximo"
+              label="Gramos máximos"
               type="number"
               value={filters.maxQuantity}
               onChange={handleFilterChange("maxQuantity")}
             />
             <TextField
-              label="Precio minimo"
+              label="Precio mínimo (por g)"
               type="number"
               value={filters.minPrice}
               onChange={handleFilterChange("minPrice")}
             />
             <TextField
-              label="Precio maximo"
+              label="Precio máximo (por g)"
               type="number"
               value={filters.maxPrice}
               onChange={handleFilterChange("maxPrice")}
@@ -482,8 +488,8 @@ const SalesPage = () => {
                 <TableCell>Venta</TableCell>
                 <TableCell>Tostión</TableCell>
                 <TableCell>Cliente</TableCell>
-                <TableCell align="right">Kg</TableCell>
-                <TableCell align="right">Precio/kg</TableCell>
+                <TableCell align="right">Gramos</TableCell>
+                <TableCell align="right">Precio/g</TableCell>
                 <TableCell align="right">Total</TableCell>
                 <TableCell align="right">Acciones</TableCell>
               </TableRow>
@@ -509,7 +515,7 @@ const SalesPage = () => {
                     : "Finca desconocida";
                   const process = lot?.process ?? "Proceso N/D";
                   const roastDate = roast ? new Date(roast.roast_date).toLocaleDateString() : "Fecha N/D";
-                  const available = roast ? getAvailableRoastedKg(roast.id, sale.id) : 0;
+                  const available = roast ? getAvailableRoastedGrams(roast.id, sale.id) : 0;
                   const customerName = customers.find((c) => c.id === sale.customer_id)?.name ?? "Venta mostrador";
 
                   return (
@@ -533,7 +539,7 @@ const SalesPage = () => {
                             {`${roastDate} · ${process} · ${farmName}`}
                           </Typography>
                           <Typography variant="caption" color="text.secondary">
-                            {`Disponible: ${available.toFixed(2)} kg`}
+                              {`Disponible: ${formatGrams(available)} g`}
                           </Typography>
                         </Stack>
                       </TableCell>
@@ -549,8 +555,8 @@ const SalesPage = () => {
                           ) : null}
                         </Stack>
                       </TableCell>
-                      <TableCell align="right">{sale.quantity_kg.toFixed(2)}</TableCell>
-                      <TableCell align="right">${sale.price_per_kg.toFixed(2)}</TableCell>
+                      <TableCell align="right">{formatGrams(sale.quantity_g)}</TableCell>
+                      <TableCell align="right">${formatPricePerGram(sale.price_per_g)}</TableCell>
                       <TableCell align="right">${sale.total_price.toFixed(2)}</TableCell>
                       <TableCell align="right">
                         <Tooltip title="Editar">
@@ -606,7 +612,7 @@ const SalesPage = () => {
                   : "Finca desconocida";
                 const process = lot?.process ?? "Proceso N/D";
                 const roastDate = new Date(roast.roast_date).toLocaleDateString();
-                const available = getAvailableRoastedKg(roast.id, saleEditingId);
+                const available = getAvailableRoastedGrams(roast.id, saleEditingId);
 
                 return (
                   <MenuItem key={roast.id} value={String(roast.id)}>
@@ -615,7 +621,7 @@ const SalesPage = () => {
                         {`Roast #${roast.id} · ${varietyName}`}
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
-                        {`${roastDate} · ${process} · ${farmName} · Disponible: ${available.toFixed(2)} kg`}
+                        {`${roastDate} · ${process} · ${farmName} · Disponible: ${formatGrams(available)} g`}
                       </Typography>
                     </Box>
                   </MenuItem>
@@ -644,25 +650,25 @@ const SalesPage = () => {
               required
             />
             <TextField
-              label="Cantidad (kg)"
+              label="Cantidad (g)"
               type="number"
-              value={saleForm.quantity_kg}
-              onChange={(e) => setSaleForm((prev) => ({ ...prev, quantity_kg: e.target.value }))}
+              value={saleForm.quantity_g}
+              onChange={(e) => setSaleForm((prev) => ({ ...prev, quantity_g: e.target.value }))}
               error={Boolean(saleErrors.quantity)}
               helperText={
                 saleErrors.quantity ??
                 (availableForSelectedRoast != null
-                  ? `Disponible: ${availableForSelectedRoast.toFixed(2)} kg`
+                  ? `Disponible: ${formatGrams(availableForSelectedRoast)} g`
                   : undefined)
               }
-              inputProps={{ min: 0, step: "0.01" }}
+              inputProps={{ min: 0, step: "1" }}
               required
             />
             <TextField
-              label="Precio por kg"
+              label="Precio por gramo"
               type="number"
-              value={saleForm.price_per_kg}
-              onChange={(e) => setSaleForm((prev) => ({ ...prev, price_per_kg: e.target.value }))}
+              value={saleForm.price_per_g}
+              onChange={(e) => setSaleForm((prev) => ({ ...prev, price_per_g: e.target.value }))}
               error={Boolean(saleErrors.price)}
               helperText={saleErrors.price}
               inputProps={{ min: 0, step: "0.01" }}

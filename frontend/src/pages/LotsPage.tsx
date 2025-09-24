@@ -31,13 +31,19 @@ import FilterPanel from "../components/FilterPanel";
 
 const processOptions = ["Lavado", "Semilavado", "Honey", "Natural"];
 
+const formatGrams = (value: number) =>
+  value.toLocaleString("es-CO", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+
+const formatPricePerGram = (value: number) =>
+  value.toLocaleString("es-CO", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
 const initialForm = {
   farm_id: "",
   variety_id: "",
   process: processOptions[0],
   purchase_date: new Date().toISOString().slice(0, 10),
-  green_weight_kg: "",
-  price_per_kg: "",
+  green_weight_g: "",
+  price_per_g: "",
   moisture_level: "",
   notes: ""
 };
@@ -106,25 +112,25 @@ const LotsPage = () => {
       }
       if (filters.minWeight) {
         const minWeight = Number(filters.minWeight);
-        if (!Number.isNaN(minWeight) && lot.green_weight_kg < minWeight) {
+        if (!Number.isNaN(minWeight) && lot.green_weight_g < minWeight) {
           return false;
         }
       }
       if (filters.maxWeight) {
         const maxWeight = Number(filters.maxWeight);
-        if (!Number.isNaN(maxWeight) && lot.green_weight_kg > maxWeight) {
+        if (!Number.isNaN(maxWeight) && lot.green_weight_g > maxWeight) {
           return false;
         }
       }
       if (filters.minPrice) {
         const minPrice = Number(filters.minPrice);
-        if (!Number.isNaN(minPrice) && lot.price_per_kg < minPrice) {
+        if (!Number.isNaN(minPrice) && lot.price_per_g < minPrice) {
           return false;
         }
       }
       if (filters.maxPrice) {
         const maxPrice = Number(filters.maxPrice);
-        if (!Number.isNaN(maxPrice) && lot.price_per_kg > maxPrice) {
+        if (!Number.isNaN(maxPrice) && lot.price_per_g > maxPrice) {
           return false;
         }
       }
@@ -161,8 +167,8 @@ const LotsPage = () => {
         variety_id: Number(form.variety_id),
         process: form.process,
         purchase_date: form.purchase_date,
-        green_weight_kg: Number(form.green_weight_kg),
-        price_per_kg: Number(form.price_per_kg),
+        green_weight_g: Number(form.green_weight_g),
+        price_per_g: Number(form.price_per_g),
         moisture_level: form.moisture_level ? Number(form.moisture_level) : null,
         notes: form.notes
       };
@@ -188,8 +194,8 @@ const LotsPage = () => {
       variety_id: String(lot.variety_id),
       process: lot.process,
       purchase_date: lot.purchase_date,
-      green_weight_kg: String(lot.green_weight_kg),
-      price_per_kg: String(lot.price_per_kg),
+      green_weight_g: String(lot.green_weight_g),
+      price_per_g: String(lot.price_per_g),
       moisture_level: lot.moisture_level ? String(lot.moisture_level) : "",
       notes: lot.notes ?? ""
     });
@@ -314,25 +320,25 @@ const LotsPage = () => {
               onChange={handleFilterChange("dateTo")}
             />
             <TextField
-              label="Kg minimo"
+              label="Gramos mínimos"
               type="number"
               value={filters.minWeight}
               onChange={handleFilterChange("minWeight")}
             />
             <TextField
-              label="Kg maximo"
+              label="Gramos máximos"
               type="number"
               value={filters.maxWeight}
               onChange={handleFilterChange("maxWeight")}
             />
             <TextField
-              label="Precio minimo"
+              label="Precio mínimo (por g)"
               type="number"
               value={filters.minPrice}
               onChange={handleFilterChange("minPrice")}
             />
             <TextField
-              label="Precio maximo"
+              label="Precio máximo (por g)"
               type="number"
               value={filters.maxPrice}
               onChange={handleFilterChange("maxPrice")}
@@ -345,8 +351,8 @@ const LotsPage = () => {
                 <TableCell>Variedad</TableCell>
                 <TableCell>Proceso</TableCell>
                 <TableCell>Fecha</TableCell>
-                <TableCell align="right">Kg verdes</TableCell>
-                <TableCell align="right">Precio/kg</TableCell>
+                <TableCell align="right">Gramos verdes</TableCell>
+                <TableCell align="right">Precio/g</TableCell>
                 <TableCell align="right">Acciones</TableCell>
               </TableRow>
             </TableHead>
@@ -366,8 +372,8 @@ const LotsPage = () => {
                     <TableCell>{varieties.find((v) => v.id === lot.variety_id)?.name ?? ""}</TableCell>
                     <TableCell>{lot.process}</TableCell>
                     <TableCell>{lot.purchase_date}</TableCell>
-                    <TableCell align="right">{lot.green_weight_kg.toFixed(2)}</TableCell>
-                    <TableCell align="right">${lot.price_per_kg.toFixed(2)}</TableCell>
+                    <TableCell align="right">{formatGrams(lot.green_weight_g)}</TableCell>
+                    <TableCell align="right">${formatPricePerGram(lot.price_per_g)}</TableCell>
                     <TableCell align="right">
                       <Tooltip title="Editar">
                         <IconButton color="primary" onClick={() => handleEdit(lot)}>
@@ -455,18 +461,18 @@ const LotsPage = () => {
               required
             />
             <TextField
-              label="Peso verde (kg)"
+              label="Peso verde (g)"
               type="number"
-              value={form.green_weight_kg}
-              onChange={(e) => setForm((prev) => ({ ...prev, green_weight_kg: e.target.value }))}
-              inputProps={{ min: 0, step: "0.01" }}
+              value={form.green_weight_g}
+              onChange={(e) => setForm((prev) => ({ ...prev, green_weight_g: e.target.value }))}
+              inputProps={{ min: 0, step: "1" }}
               required
             />
             <TextField
-              label="Precio por kg"
+              label="Precio por gramo"
               type="number"
-              value={form.price_per_kg}
-              onChange={(e) => setForm((prev) => ({ ...prev, price_per_kg: e.target.value }))}
+              value={form.price_per_g}
+              onChange={(e) => setForm((prev) => ({ ...prev, price_per_g: e.target.value }))}
               inputProps={{ min: 0, step: "0.01" }}
               required
             />

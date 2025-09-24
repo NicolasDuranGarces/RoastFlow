@@ -25,8 +25,8 @@ export interface CoffeeLot {
   variety_id: number;
   process: string;
   purchase_date: string;
-  green_weight_kg: number;
-  price_per_kg: number;
+  green_weight_g: number;
+  price_per_g: number;
   moisture_level?: number | null;
   notes?: string | null;
 }
@@ -35,8 +35,8 @@ export interface RoastBatch {
   id: number;
   lot_id: number;
   roast_date: string;
-  green_input_kg: number;
-  roasted_output_kg: number;
+  green_input_g: number;
+  roasted_output_g: number;
   roast_level?: string | null;
   notes?: string | null;
   shrinkage_pct: number;
@@ -53,8 +53,8 @@ export interface Sale {
   roast_batch_id: number;
   customer_id?: number | null;
   sale_date: string;
-  quantity_kg: number;
-  price_per_kg: number;
+  quantity_g: number;
+  price_per_g: number;
   total_price: number;
   notes?: string | null;
 }
@@ -68,8 +68,8 @@ export interface Expense {
 }
 
 export interface InventorySummary {
-  green_available_kg: number;
-  roasted_available_kg: number;
+  green_available_g: number;
+  roasted_available_g: number;
 }
 
 export interface FinancialSummary {
@@ -78,7 +78,7 @@ export interface FinancialSummary {
   purchase_costs: number;
   net_profit: number;
   total_quantity_sold: number;
-  average_price_per_kg: number;
+  average_price_per_g: number;
   projected_full_sale_value: number;
   projected_half_sale_value: number;
 }

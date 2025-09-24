@@ -25,11 +25,11 @@ def create_roast(
     session: Session = Depends(get_session),
     _: object = Depends(get_current_active_user),
 ):
-    if payload.green_input_kg <= 0:
+    if payload.green_input_g <= 0:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Green input must be greater than zero")
 
     roast = RoastBatch.model_validate(payload)
-    roast.shrinkage_pct = _calculate_shrinkage(roast.green_input_kg, roast.roasted_output_kg)
+    roast.shrinkage_pct = _calculate_shrinkage(roast.green_input_g, roast.roasted_output_g)
     session.add(roast)
     session.commit()
     session.refresh(roast)
@@ -63,10 +63,10 @@ def update_roast(
     for key, value in update_data.items():
         setattr(roast, key, value)
 
-    if roast.green_input_kg <= 0:
+    if roast.green_input_g <= 0:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Green input must be greater than zero")
 
-    roast.shrinkage_pct = _calculate_shrinkage(roast.green_input_kg, roast.roasted_output_kg)
+    roast.shrinkage_pct = _calculate_shrinkage(roast.green_input_g, roast.roasted_output_g)
 
     session.add(roast)
     session.commit()

@@ -18,11 +18,11 @@ def create_sale(
     session: Session = Depends(get_session),
     _: object = Depends(get_current_active_user),
 ):
-    if payload.quantity_kg <= 0:
+    if payload.quantity_g <= 0:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Quantity must be greater than zero")
 
     sale = Sale.model_validate(payload)
-    sale.total_price = sale.quantity_kg * sale.price_per_kg
+    sale.total_price = sale.quantity_g * sale.price_per_g
     session.add(sale)
     session.commit()
     session.refresh(sale)
@@ -56,10 +56,10 @@ def update_sale(
     for key, value in update_data.items():
         setattr(sale, key, value)
 
-    if sale.quantity_kg <= 0:
+    if sale.quantity_g <= 0:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Quantity must be greater than zero")
 
-    sale.total_price = sale.quantity_kg * sale.price_per_kg
+    sale.total_price = sale.quantity_g * sale.price_per_g
 
     session.add(sale)
     session.commit()

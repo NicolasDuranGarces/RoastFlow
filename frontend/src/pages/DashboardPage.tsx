@@ -26,7 +26,8 @@ import type { DashboardSummary } from "../types";
 const formatCurrency = (value: number) =>
   value.toLocaleString("es-CO", { style: "currency", currency: "COP", minimumFractionDigits: 0 });
 
-const formatKg = (value: number) => `${value.toFixed(2)} kg`;
+const formatGrams = (value: number) =>
+  `${value.toLocaleString("es-CO", { minimumFractionDigits: 0, maximumFractionDigits: 0 })} g`;
 
 const DashboardPage = () => {
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
@@ -54,8 +55,8 @@ const DashboardPage = () => {
       };
     }
     return {
-      roastedAvailable: summary.inventory.roasted_available_kg,
-      averagePrice: summary.financials.average_price_per_kg,
+      roastedAvailable: summary.inventory.roasted_available_g,
+      averagePrice: summary.financials.average_price_per_g,
       fullValue: summary.financials.projected_full_sale_value,
       halfValue: summary.financials.projected_half_sale_value
     };
@@ -63,11 +64,11 @@ const DashboardPage = () => {
 
   const dynamicProjection = useMemo(() => {
     if (!summary) {
-      return { kilos: 0, value: 0 };
+      return { grams: 0, value: 0 };
     }
-    const kilos = (summary.inventory.roasted_available_kg * projectionPercent) / 100;
-    const value = kilos * summary.financials.average_price_per_kg;
-    return { kilos, value };
+    const grams = (summary.inventory.roasted_available_g * projectionPercent) / 100;
+    const value = grams * summary.financials.average_price_per_g;
+    return { grams, value };
   }, [summary, projectionPercent]);
 
   if (!summary) {
@@ -124,8 +125,8 @@ const DashboardPage = () => {
             <Card>
               <CardContent>
                 <Stack spacing={1}>
-                  <Typography variant="overline">Promedio venta por kg</Typography>
-                  <Typography variant="h4">{formatCurrency(financials.average_price_per_kg)}</Typography>
+                  <Typography variant="overline">Promedio venta por gramo</Typography>
+                  <Typography variant="h4">{formatCurrency(financials.average_price_per_g)}</Typography>
                   <Typography variant="body2" color="text.secondary">
                     Basado en las ventas registradas
                   </Typography>
@@ -153,7 +154,7 @@ const DashboardPage = () => {
           <CardHeader
             title="Salud financiera"
             subheader="Ventas, costos y utilidad acumulada"
-            action={<Chip label={`Valor promedio ${formatCurrency(financials.average_price_per_kg)}/kg`} />}
+            action={<Chip label={`Valor promedio ${formatCurrency(financials.average_price_per_g)}/g`} />}
           />
           <CardContent>
             <Grid container spacing={3}>
@@ -166,7 +167,7 @@ const DashboardPage = () => {
                     <Typography variant="overline">Ventas acumuladas</Typography>
                     <Typography variant="h5">{formatCurrency(financials.total_sales)}</Typography>
                     <Typography variant="body2" color="text.secondary">
-                      {formatKg(financials.total_quantity_sold)} vendidas
+                      {formatGrams(financials.total_quantity_sold)} vendidos
                     </Typography>
                   </Stack>
                 </Stack>
@@ -227,7 +228,7 @@ const DashboardPage = () => {
                 </Avatar>
                 <Stack>
                   <Typography variant="overline">Verde disponible</Typography>
-                  <Typography variant="h6">{formatKg(inventory.green_available_kg)}</Typography>
+                  <Typography variant="h6">{formatGrams(inventory.green_available_g)}</Typography>
                 </Stack>
               </Stack>
               <Stack direction="row" spacing={2} alignItems="center">
@@ -236,7 +237,7 @@ const DashboardPage = () => {
                 </Avatar>
                 <Stack>
                   <Typography variant="overline">Tostado disponible</Typography>
-                  <Typography variant="h6">{formatKg(inventory.roasted_available_kg)}</Typography>
+                  <Typography variant="h6">{formatGrams(inventory.roasted_available_g)}</Typography>
                 </Stack>
               </Stack>
               <Box>
@@ -286,13 +287,13 @@ const DashboardPage = () => {
               </Box>
               <Stack spacing={0.5}>
                 <Typography variant="overline">Inventario tostado disponible</Typography>
-                <Typography variant="h5">{formatKg(projections.roastedAvailable)}</Typography>
+                <Typography variant="h5">{formatGrams(projections.roastedAvailable)}</Typography>
               </Stack>
               <Stack spacing={0.5}>
                 <Typography variant="overline">Proyección {projectionPercent}%</Typography>
                 <Typography variant="h4">{formatCurrency(dynamicProjection.value)}</Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Equivale a {formatKg(dynamicProjection.kilos)} vendidos al precio promedio
+                  Equivale a {formatGrams(dynamicProjection.grams)} vendidos al precio promedio
                 </Typography>
               </Stack>
               <Divider />
@@ -317,8 +318,8 @@ const DashboardPage = () => {
             <Grid container spacing={2}>
               <Grid item xs={12} sm={6}>
                 <Stack spacing={0.5}>
-                  <Typography variant="overline">Kg vendidos</Typography>
-                  <Typography variant="h5">{formatKg(financials.total_quantity_sold)}</Typography>
+                  <Typography variant="overline">Gramos vendidos</Typography>
+                  <Typography variant="h5">{formatGrams(financials.total_quantity_sold)}</Typography>
                   <Typography variant="caption" color="text.secondary">
                     Total acumulado de café tostado comercializado
                   </Typography>
@@ -327,9 +328,9 @@ const DashboardPage = () => {
               <Grid item xs={12} sm={6}>
                 <Stack spacing={0.5}>
                   <Typography variant="overline">Ingreso promedio</Typography>
-                  <Typography variant="h5">{formatCurrency(financials.average_price_per_kg)}</Typography>
+                  <Typography variant="h5">{formatCurrency(financials.average_price_per_g)}</Typography>
                   <Typography variant="caption" color="text.secondary">
-                    Precio medio por kilogramo vendido
+                    Precio medio por gramo vendido
                   </Typography>
                 </Stack>
               </Grid>
@@ -342,7 +343,7 @@ const DashboardPage = () => {
               <Grid item xs={12} sm={6}>
                 <Stack spacing={0.5}>
                   <Typography variant="overline">Inventario proyectado</Typography>
-                  <Typography variant="subtitle1">{formatKg(projections.roastedAvailable)}</Typography>
+                  <Typography variant="subtitle1">{formatGrams(projections.roastedAvailable)}</Typography>
                 </Stack>
               </Grid>
             </Grid>
@@ -358,21 +359,21 @@ const DashboardPage = () => {
               <Grid item xs={12} md={4}>
                 <Stack>
                   <Typography variant="overline">Verde comprado</Typography>
-                  <Typography variant="h5">{formatKg(roastStats.total_green_purchased)}</Typography>
+                  <Typography variant="h5">{formatGrams(roastStats.total_green_purchased)}</Typography>
                 </Stack>
               </Grid>
               <Grid item xs={12} md={4}>
                 <Stack>
                   <Typography variant="overline">Tostado producido</Typography>
-                  <Typography variant="h5">{formatKg(roastStats.total_roasted_produced)}</Typography>
+                  <Typography variant="h5">{formatGrams(roastStats.total_roasted_produced)}</Typography>
                 </Stack>
               </Grid>
               <Grid item xs={12} md={4}>
                 <Stack>
                   <Typography variant="overline">Tostado vendido</Typography>
-                  <Typography variant="h5">{formatKg(roastStats.total_roasted_sold)}</Typography>
+                  <Typography variant="h5">{formatGrams(roastStats.total_roasted_sold)}</Typography>
                   <Typography variant="body2" color="text.secondary">
-                    Diferencia inventario: {formatKg(roastStats.total_roasted_produced - roastStats.total_roasted_sold)}
+                    Diferencia inventario: {formatGrams(roastStats.total_roasted_produced - roastStats.total_roasted_sold)}
                   </Typography>
                 </Stack>
               </Grid>

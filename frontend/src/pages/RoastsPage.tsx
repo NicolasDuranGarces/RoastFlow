@@ -32,16 +32,19 @@ import type { CoffeeLot, Farm, RoastBatch, Variety } from "../types";
 import ConfirmDialog from "../components/ConfirmDialog";
 import FilterPanel from "../components/FilterPanel";
 
+const formatGrams = (value: number) =>
+  value.toLocaleString("es-CO", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+
 const initialForm = {
   lot_id: "",
   roast_date: new Date().toISOString().slice(0, 10),
-  green_input_kg: "",
-  roasted_output_kg: "",
+  green_input_g: "",
+  roasted_output_g: "",
   roast_level: "",
   notes: ""
 };
 
-const MIN_AVAILABLE_GREEN_KG = 0.2;
+const MIN_AVAILABLE_GREEN_G = 200;
 
 const RoastsPage = () => {
   const navigate = useNavigate();
@@ -102,7 +105,7 @@ const RoastsPage = () => {
     }
   }, [location, navigate]);
 
-  const getAvailableGreenKg = (lotId: number, ignoreRoastId: number | null) => {
+  const getAvailableGreenGrams = (lotId: number, ignoreRoastId: number | null) => {
     const lot = lots.find((candidate) => candidate.id === lotId);
     if (!lot) {
       return 0;
@@ -114,25 +117,25 @@ const RoastsPage = () => {
       if (ignoreRoastId && roast.id === ignoreRoastId) {
         return total;
       }
-      return total + roast.green_input_kg;
+      return total + roast.green_input_g;
     }, 0);
-    return Math.max(0, lot.green_weight_kg - used);
+    return Math.max(0, lot.green_weight_g - used);
   };
 
   const availableGreenForSelectedLot = useMemo(() => {
     if (!form.lot_id) {
       return null;
     }
-    return getAvailableGreenKg(Number(form.lot_id), editingId);
+    return getAvailableGreenGrams(Number(form.lot_id), editingId);
   }, [form.lot_id, editingId, lots, roasts]);
 
   const lotOptions = useMemo(() => {
     return lots.filter((lot) => {
-      const available = getAvailableGreenKg(lot.id, editingId);
+      const available = getAvailableGreenGrams(lot.id, editingId);
       if (editingId && Number(form.lot_id) === lot.id) {
         return true;
       }
-      return available >= MIN_AVAILABLE_GREEN_KG;
+      return available >= MIN_AVAILABLE_GREEN_G;
     });
   }, [editingId, form.lot_id, lots, roasts]);
 
@@ -149,25 +152,25 @@ const RoastsPage = () => {
       }
       if (filters.minGreen) {
         const min = Number(filters.minGreen);
-        if (!Number.isNaN(min) && roast.green_input_kg < min) {
+        if (!Number.isNaN(min) && roast.green_input_g < min) {
           return false;
         }
       }
       if (filters.maxGreen) {
         const max = Number(filters.maxGreen);
-        if (!Number.isNaN(max) && roast.green_input_kg > max) {
+        if (!Number.isNaN(max) && roast.green_input_g > max) {
           return false;
         }
       }
       if (filters.minRoasted) {
         const min = Number(filters.minRoasted);
-        if (!Number.isNaN(min) && roast.roasted_output_kg < min) {
+        if (!Number.isNaN(min) && roast.roasted_output_g < min) {
           return false;
         }
       }
       if (filters.maxRoasted) {
         const max = Number(filters.maxRoasted);
-        if (!Number.isNaN(max) && roast.roasted_output_kg > max) {
+        if (!Number.isNaN(max) && roast.roasted_output_g > max) {
           return false;
         }
       }
@@ -210,26 +213,26 @@ const RoastsPage = () => {
     const payload = {
       lot_id: Number(form.lot_id),
       roast_date: form.roast_date,
-      green_input_kg: Number(form.green_input_kg),
-      roasted_output_kg: Number(form.roasted_output_kg),
+      green_input_g: Number(form.green_input_g),
+      roasted_output_g: Number(form.roasted_output_g),
       roast_level: form.roast_level,
       notes: form.notes
     };
 
     const nextErrors: { green?: string; roasted?: string } = {};
-    if (!payload.green_input_kg || Number.isNaN(payload.green_input_kg) || payload.green_input_kg <= 0) {
-      nextErrors.green = "Ingresa kg verdes mayores a cero";
+    if (!payload.green_input_g || Number.isNaN(payload.green_input_g) || payload.green_input_g <= 0) {
+      nextErrors.green = "Ingresa gramos verdes mayores a cero";
     } else if (payload.lot_id) {
-      const available = getAvailableGreenKg(payload.lot_id, editingId);
-      if (payload.green_input_kg > available) {
-        nextErrors.green = `Solo hay ${available.toFixed(2)} kg verdes disponibles`;
+      const available = getAvailableGreenGrams(payload.lot_id, editingId);
+      if (payload.green_input_g > available) {
+        nextErrors.green = `Solo hay ${formatGrams(available)} g verdes disponibles`;
       }
     }
 
-    if (!payload.roasted_output_kg || Number.isNaN(payload.roasted_output_kg) || payload.roasted_output_kg <= 0) {
-      nextErrors.roasted = "Ingresa kg tostado mayores a cero";
-    } else if (!nextErrors.green && payload.roasted_output_kg > payload.green_input_kg) {
-      nextErrors.roasted = "El kg tostado no puede superar al kg verde";
+    if (!payload.roasted_output_g || Number.isNaN(payload.roasted_output_g) || payload.roasted_output_g <= 0) {
+      nextErrors.roasted = "Ingresa gramos tostados mayores a cero";
+    } else if (!nextErrors.green && payload.roasted_output_g > payload.green_input_g) {
+      nextErrors.roasted = "El tostado no puede superar al verde";
     }
 
     if (Object.keys(nextErrors).length > 0) {
@@ -260,8 +263,8 @@ const RoastsPage = () => {
     setForm({
       lot_id: String(roast.lot_id),
       roast_date: roast.roast_date,
-      green_input_kg: String(roast.green_input_kg),
-      roasted_output_kg: String(roast.roasted_output_kg),
+      green_input_g: String(roast.green_input_g),
+      roasted_output_g: String(roast.roasted_output_g),
       roast_level: roast.roast_level ?? "",
       notes: roast.notes ?? ""
     });
@@ -371,25 +374,25 @@ const RoastsPage = () => {
               onChange={handleFilterChange("dateTo")}
             />
             <TextField
-              label="Kg verde min"
+              label="Gramos verdes min"
               type="number"
               value={filters.minGreen}
               onChange={handleFilterChange("minGreen")}
             />
             <TextField
-              label="Kg verde max"
+              label="Gramos verdes max"
               type="number"
               value={filters.maxGreen}
               onChange={handleFilterChange("maxGreen")}
             />
             <TextField
-              label="Kg tostado min"
+              label="Gramos tostados min"
               type="number"
               value={filters.minRoasted}
               onChange={handleFilterChange("minRoasted")}
             />
             <TextField
-              label="Kg tostado max"
+              label="Gramos tostados max"
               type="number"
               value={filters.maxRoasted}
               onChange={handleFilterChange("maxRoasted")}
@@ -419,8 +422,8 @@ const RoastsPage = () => {
               <TableRow>
                 <TableCell>Tostión</TableCell>
                 <TableCell>Origen</TableCell>
-                <TableCell align="right">Kg verdes</TableCell>
-                <TableCell align="right">Kg tostado</TableCell>
+                <TableCell align="right">Gramos verdes</TableCell>
+                <TableCell align="right">Gramos tostados</TableCell>
                 <TableCell align="right">Merma %</TableCell>
                 <TableCell align="right">Acciones</TableCell>
               </TableRow>
@@ -475,8 +478,8 @@ const RoastsPage = () => {
                           ) : null}
                         </Stack>
                       </TableCell>
-                      <TableCell align="right">{roast.green_input_kg.toFixed(2)}</TableCell>
-                      <TableCell align="right">{roast.roasted_output_kg.toFixed(2)}</TableCell>
+                      <TableCell align="right">{formatGrams(roast.green_input_g)}</TableCell>
+                      <TableCell align="right">{formatGrams(roast.roasted_output_g)}</TableCell>
                       <TableCell align="right">{roast.shrinkage_pct.toFixed(2)}%</TableCell>
                       <TableCell align="right">
                         <Stack direction="row" spacing={1} justifyContent="flex-end">
@@ -541,7 +544,7 @@ const RoastsPage = () => {
                 const varietyName =
                   varieties.find((variety) => variety.id === lot.variety_id)?.name ?? "Variedad desconocida";
                 const formattedDate = new Date(lot.purchase_date).toLocaleDateString();
-                const available = getAvailableGreenKg(lot.id, editingId);
+                const available = getAvailableGreenGrams(lot.id, editingId);
 
                 return (
                   <MenuItem key={lot.id} value={String(lot.id)}>
@@ -550,7 +553,7 @@ const RoastsPage = () => {
                         {`Lote #${lot.id} · ${varietyName}`}
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
-                        {`${formattedDate} · ${lot.process} · ${farmName} · Disponible: ${available.toFixed(2)} kg`}
+                        {`${formattedDate} · ${lot.process} · ${farmName} · Disponible: ${formatGrams(available)} g`}
                       </Typography>
                     </Box>
                   </MenuItem>
@@ -566,28 +569,28 @@ const RoastsPage = () => {
               required
             />
             <TextField
-              label="Kg verdes"
+              label="Gramos verdes"
               type="number"
-              value={form.green_input_kg}
-              onChange={(e) => setForm((prev) => ({ ...prev, green_input_kg: e.target.value }))}
+              value={form.green_input_g}
+              onChange={(e) => setForm((prev) => ({ ...prev, green_input_g: e.target.value }))}
               error={Boolean(errors.green)}
               helperText={
                 errors.green ??
                 (availableGreenForSelectedLot != null
-                  ? `Disponible: ${availableGreenForSelectedLot.toFixed(2)} kg`
+                  ? `Disponible: ${formatGrams(availableGreenForSelectedLot)} g`
                   : undefined)
               }
-              inputProps={{ min: 0, step: "0.01" }}
+              inputProps={{ min: 0, step: "1" }}
               required
             />
             <TextField
-              label="Kg tostado"
+              label="Gramos tostados"
               type="number"
-              value={form.roasted_output_kg}
-              onChange={(e) => setForm((prev) => ({ ...prev, roasted_output_kg: e.target.value }))}
+              value={form.roasted_output_g}
+              onChange={(e) => setForm((prev) => ({ ...prev, roasted_output_g: e.target.value }))}
               error={Boolean(errors.roasted)}
               helperText={errors.roasted}
-              inputProps={{ min: 0, step: "0.01" }}
+              inputProps={{ min: 0, step: "1" }}
               required
             />
             <TextField

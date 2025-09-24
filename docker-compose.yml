@@ -41,7 +41,7 @@ services:
       - ./frontend:/app
       - /app/node_modules
     environment:
-      VITE_API_URL: http://localhost:8000/api
+      VITE_API_URL: http://localhost:3015
       CHOKIDAR_USEPOLLING: "true"
     depends_on:
       - backend

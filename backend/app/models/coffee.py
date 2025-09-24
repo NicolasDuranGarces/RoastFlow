@@ -55,8 +55,8 @@ class CoffeeLotBase(SQLModel):
     variety_id: int = Field(foreign_key="variety.id")
     process: str
     purchase_date: date
-    green_weight_kg: float
-    price_per_kg: float
+    green_weight_g: float
+    price_per_g: float
     moisture_level: Optional[float] = None
     notes: Optional[str] = None
 
@@ -78,8 +78,8 @@ class CoffeeLotUpdate(SQLModel):
     variety_id: Optional[int] = None
     process: Optional[str] = None
     purchase_date: Optional[date] = None
-    green_weight_kg: Optional[float] = None
-    price_per_kg: Optional[float] = None
+    green_weight_g: Optional[float] = None
+    price_per_g: Optional[float] = None
     moisture_level: Optional[float] = None
     notes: Optional[str] = None
 
@@ -87,8 +87,8 @@ class CoffeeLotUpdate(SQLModel):
 class RoastBatchBase(SQLModel):
     lot_id: int = Field(foreign_key="coffeelot.id")
     roast_date: date
-    green_input_kg: float
-    roasted_output_kg: float
+    green_input_g: float
+    roasted_output_g: float
     roast_level: Optional[str] = None
     notes: Optional[str] = None
 
@@ -110,8 +110,8 @@ class RoastBatchRead(RoastBatchBase):
 class RoastBatchUpdate(SQLModel):
     lot_id: Optional[int] = None
     roast_date: Optional[date] = None
-    green_input_kg: Optional[float] = None
-    roasted_output_kg: Optional[float] = None
+    green_input_g: Optional[float] = None
+    roasted_output_g: Optional[float] = None
     roast_level: Optional[str] = None
     notes: Optional[str] = None
 
@@ -142,8 +142,8 @@ class SaleBase(SQLModel):
     roast_batch_id: int = Field(foreign_key="roastbatch.id")
     customer_id: Optional[int] = Field(default=None, foreign_key="customer.id")
     sale_date: date
-    quantity_kg: float
-    price_per_kg: float
+    quantity_g: float
+    price_per_g: float
     notes: Optional[str] = None
 
 
@@ -165,8 +165,8 @@ class SaleUpdate(SQLModel):
     roast_batch_id: Optional[int] = None
     customer_id: Optional[int] = None
     sale_date: Optional[date] = None
-    quantity_kg: Optional[float] = None
-    price_per_kg: Optional[float] = None
+    quantity_g: Optional[float] = None
+    price_per_g: Optional[float] = None
     notes: Optional[str] = None
 
 

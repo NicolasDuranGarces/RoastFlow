@@ -2,8 +2,8 @@ from pydantic import BaseModel
 
 
 class InventorySummary(BaseModel):
-    green_available_kg: float
-    roasted_available_kg: float
+    green_available_g: float
+    roasted_available_g: float
 
 
 class FinancialSummary(BaseModel):
@@ -12,7 +12,7 @@ class FinancialSummary(BaseModel):
     purchase_costs: float
     net_profit: float
     total_quantity_sold: float
-    average_price_per_kg: float
+    average_price_per_g: float
     projected_full_sale_value: float
     projected_half_sale_value: float
 
