@@ -4,13 +4,16 @@ import {
   Card,
   CardContent,
   CardHeader,
+  Chip,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
+  FormControlLabel,
   IconButton,
   MenuItem,
   Stack,
+  Switch,
   Table,
   TableBody,
   TableCell,
@@ -48,6 +51,9 @@ const formatGrams = (value: number) =>
 const formatCurrency = (value: number) =>
   value.toLocaleString("es-CO", { style: "currency", currency: "COP", minimumFractionDigits: 0 });
 
+const formatDate = (value: string | null | undefined) =>
+  value ? new Date(value).toLocaleDateString("es-CO", { year: "numeric", month: "short", day: "numeric" }) : "";
+
 const BAG_SIZES = [250, 340, 500, 2500] as const;
 
 type SaleItemForm = {
@@ -77,6 +83,8 @@ const buildEmptySaleForm = () => ({
   customer_id: "",
   sale_date: new Date().toISOString().slice(0, 10),
   notes: "",
+  is_paid: true,
+  amount_paid: "",
   items: [createEmptySaleItem()]
 });
 
@@ -109,7 +117,8 @@ const SalesPage = () => {
     minTotal: "",
     maxTotal: "",
     notes: "",
-    varietyId: ""
+    varietyId: "",
+    status: ""
   });
   const [deleteTarget, setDeleteTarget] = useState<Sale | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -258,6 +267,14 @@ const SalesPage = () => {
       if (filters.notes && !(sale.notes ?? "").toLowerCase().includes(filters.notes.toLowerCase())) {
         return false;
       }
+      const balanceDue = Math.max(sale.total_price - sale.amount_paid, 0);
+      const isPending = balanceDue > 0.0001;
+      if (filters.status === "paid" && isPending) {
+        return false;
+      }
+      if (filters.status === "pending" && !isPending) {
+        return false;
+      }
       if (filters.varietyId) {
         const matchesVariety = sale.items?.some((item) => {
           const roast = roasts.find((candidate) => candidate.id === item.roast_batch_id);
@@ -304,6 +321,23 @@ const SalesPage = () => {
     setPage(0);
   }, [filteredSales.length]);
 
+const currentSaleTotal = useMemo(() => {
+    return saleForm.items.reduce((total, item) => {
+      const price = Math.round(Number(item.bag_price));
+      const bags = Math.round(Number(item.bags));
+      if (Number.isNaN(price) || Number.isNaN(bags)) {
+        return total;
+      }
+      return total + price * bags;
+    }, 0);
+  }, [saleForm.items]);
+
+  const parsedAmountPaid = saleForm.is_paid ? currentSaleTotal : Math.round(Number(saleForm.amount_paid || 0));
+  const currentBalancePreview = Math.max(
+    currentSaleTotal - (Number.isNaN(parsedAmountPaid) ? 0 : parsedAmountPaid),
+    0
+  );
+
   const resetSaleForm = () => {
     setSaleForm(buildEmptySaleForm());
     setSaleEditingId(null);
@@ -348,6 +382,20 @@ const SalesPage = () => {
       items: prev.items.filter((_, idx) => idx !== index)
     }));
     setSaleItemErrors({});
+    setGeneralSaleError(null);
+  };
+
+  const handlePaidToggle = (checked: boolean) => {
+    setSaleForm((prev) => ({
+      ...prev,
+      is_paid: checked,
+      amount_paid: checked ? "" : prev.amount_paid
+    }));
+    setGeneralSaleError(null);
+  };
+
+  const handleAmountPaidChange = (value: string) => {
+    setSaleForm((prev) => ({ ...prev, amount_paid: value }));
     setGeneralSaleError(null);
   };
 
@@ -409,7 +457,7 @@ const SalesPage = () => {
       }
     });
 
-    if (hasErrors) {
+  if (hasErrors) {
       setSaleItemErrors(itemErrors);
       setGeneralSaleError("Corrige los campos marcados antes de guardar");
       return;
@@ -418,15 +466,30 @@ const SalesPage = () => {
     setSaleItemErrors({});
     setGeneralSaleError(null);
 
+    const rawAmountPaid = saleForm.is_paid ? currentSaleTotal : Math.round(Number(saleForm.amount_paid || 0));
+    if (!saleForm.is_paid && (Number.isNaN(rawAmountPaid) || rawAmountPaid < 0)) {
+      setGeneralSaleError("Ingresa un monto pagado válido");
+      return;
+    }
+    if (!saleForm.is_paid && rawAmountPaid > currentSaleTotal) {
+      setGeneralSaleError("El monto pagado no puede superar el total de la venta");
+      return;
+    }
+
+    const resolvedIsPaid = saleForm.is_paid || rawAmountPaid >= currentSaleTotal;
+    const resolvedAmountPaid = resolvedIsPaid ? currentSaleTotal : rawAmountPaid;
+
     const payload = {
       customer_id: saleForm.customer_id ? Number(saleForm.customer_id) : null,
       sale_date: saleForm.sale_date,
       notes: saleForm.notes.trim() ? saleForm.notes : undefined,
+      is_paid: resolvedIsPaid,
+      amount_paid: resolvedAmountPaid,
       items: saleForm.items.map((item) => ({
         roast_batch_id: Number(item.roast_batch_id),
         bag_size_g: item.bag_size_g,
-        bags: Number(item.bags),
-        bag_price: Number(item.bag_price),
+        bags: Math.round(Number(item.bags)),
+        bag_price: Math.round(Number(item.bag_price)),
         notes: item.notes.trim() ? item.notes : undefined
       }))
     };
@@ -457,10 +520,15 @@ const SalesPage = () => {
       bag_price: String(item.bag_price),
       notes: item.notes ?? ""
     }));
+    const saleBalance = Math.max(sale.total_price - sale.amount_paid, 0);
     setSaleForm({
       customer_id: sale.customer_id ? String(sale.customer_id) : "",
       sale_date: sale.sale_date,
       notes: sale.notes ?? "",
+      is_paid: saleBalance <= 0.0001,
+      amount_paid: saleBalance <= 0.0001
+        ? sale.total_price.toString()
+        : sale.amount_paid.toString(),
       items: mappedItems.length ? mappedItems : [createEmptySaleItem()]
     });
     setSaleItemErrors({});
@@ -533,7 +601,8 @@ const SalesPage = () => {
                 minTotal: "",
                 maxTotal: "",
                 notes: "",
-                varietyId: ""
+                varietyId: "",
+                status: ""
               })
             }
           >
@@ -633,6 +702,16 @@ const SalesPage = () => {
                 </MenuItem>
               ))}
             </TextField>
+            <TextField
+              select
+              label="Estado de pago"
+              value={filters.status}
+              onChange={handleFilterChange("status")}
+            >
+              <MenuItem value="">Todos</MenuItem>
+              <MenuItem value="paid">Pagadas</MenuItem>
+              <MenuItem value="pending">Pendientes</MenuItem>
+            </TextField>
           </FilterPanel>
           <Table size="small" stickyHeader>
             <TableHead>
@@ -642,13 +721,14 @@ const SalesPage = () => {
                 <TableCell>Cliente</TableCell>
                 <TableCell align="right">Gramos</TableCell>
                 <TableCell align="right">Total</TableCell>
+                <TableCell align="right">Estado</TableCell>
                 <TableCell align="right">Acciones</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {sortedSales.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6}>
+                  <TableCell colSpan={7}>
                     {isFiltering
                       ? "No hay ventas que coincidan con los filtros."
                       : "No hay ventas registradas."}
@@ -658,6 +738,8 @@ const SalesPage = () => {
                 paginatedSales.map((sale) => {
                   const customerName = customers.find((c) => c.id === sale.customer_id)?.name ?? "Venta mostrador";
                   const saleItems = sale.items ?? [];
+                  const balanceDue = Math.max(sale.total_price - sale.amount_paid, 0);
+                  const isPending = balanceDue > 0.0001;
 
                   return (
                     <TableRow key={sale.id}>
@@ -709,6 +791,15 @@ const SalesPage = () => {
                               );
                             })
                           )}
+                          {isPending ? (
+                            <Typography variant="caption" color="error">
+                              {`Saldo pendiente: ${formatCurrency(balanceDue)}`}
+                            </Typography>
+                          ) : (
+                            <Typography variant="caption" color="text.secondary">
+                              {`Pagado: ${formatCurrency(sale.amount_paid)}`}
+                            </Typography>
+                          )}
                         </Stack>
                       </TableCell>
                       <TableCell>
@@ -725,6 +816,26 @@ const SalesPage = () => {
                       </TableCell>
                       <TableCell align="right">{formatGrams(sale.total_quantity_g)}</TableCell>
                       <TableCell align="right">{formatCurrency(sale.total_price)}</TableCell>
+                      <TableCell align="right">
+                        <Stack spacing={0.5} alignItems="flex-end">
+                          <Chip
+                            size="small"
+                            color={isPending ? "warning" : "success"}
+                            label={isPending ? "Pendiente" : "Pagado"}
+                          />
+                          {isPending ? (
+                            <Typography variant="caption" color="error">
+                              {formatCurrency(balanceDue)}
+                            </Typography>
+                          ) : (
+                            <Typography variant="caption" color="text.secondary">
+                              {sale.paid_at
+                                ? `Pagado el ${formatDate(sale.paid_at)}`
+                                : formatCurrency(sale.amount_paid)}
+                            </Typography>
+                          )}
+                        </Stack>
+                      </TableCell>
                       <TableCell align="right">
                         <Tooltip title="Editar">
                           <IconButton color="primary" onClick={() => handleEditSale(sale)}>
@@ -864,20 +975,24 @@ const SalesPage = () => {
                       </TextField>
                       <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
                         <TextField
-                          select
-                          label="Tamaño bolsa (g)"
+                          label="Gramos por bolsa"
+                          type="number"
                           value={item.bag_size_g}
                           onChange={(e) => updateSaleItem(index, { bag_size_g: Number(e.target.value) })}
-                        >
-                          {!BAG_SIZES.includes(item.bag_size_g as (typeof BAG_SIZES)[number]) ? (
-                            <MenuItem value={item.bag_size_g}>{`${item.bag_size_g} g`}</MenuItem>
-                          ) : null}
+                          inputProps={{ min: 1, step: "1" }}
+                          required
+                        />
+                        <Stack direction="row" spacing={1} flexWrap="wrap">
                           {BAG_SIZES.map((size) => (
-                            <MenuItem key={size} value={size}>
-                              {`${size} g`}
-                            </MenuItem>
+                            <Chip
+                              key={size}
+                              label={`${size} g`}
+                              size="small"
+                              color={item.bag_size_g === size ? "primary" : "default"}
+                              onClick={() => updateSaleItem(index, { bag_size_g: size })}
+                            />
                           ))}
-                        </TextField>
+                        </Stack>
                         <TextField
                           label="Cantidad de bolsas"
                           type="number"
@@ -895,7 +1010,7 @@ const SalesPage = () => {
                           onChange={(e) => updateSaleItem(index, { bag_price: e.target.value })}
                           error={Boolean(saleItemErrors[index]?.bag_price)}
                           helperText={saleItemErrors[index]?.bag_price}
-                          inputProps={{ min: 0, step: "0.01" }}
+                          inputProps={{ min: 0, step: "1" }}
                           required
                         />
                       </Stack>
@@ -929,6 +1044,28 @@ const SalesPage = () => {
             >
               Agregar tostión
             </Button>
+            <FormControlLabel
+              control={<Switch checked={saleForm.is_paid} onChange={(e) => handlePaidToggle(e.target.checked)} />}
+              label={saleForm.is_paid ? "Venta pagada" : "Venta pendiente"}
+            />
+            <TextField
+              label="Monto pagado"
+              type="number"
+              value={saleForm.is_paid ? currentSaleTotal.toString() : saleForm.amount_paid}
+              onChange={(e) => handleAmountPaidChange(e.target.value)}
+              disabled={saleForm.is_paid}
+              inputProps={{ min: 0, step: "1" }}
+            />
+            <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+              <Typography variant="body2" fontWeight={600}>
+                {`Total venta: ${formatCurrency(currentSaleTotal)}`}
+              </Typography>
+              <Typography variant="body2" color={currentBalancePreview > 0 ? "error" : "success.main"}>
+                {currentBalancePreview > 0
+                  ? `Saldo pendiente: ${formatCurrency(currentBalancePreview)}`
+                  : "Sin saldo pendiente"}
+              </Typography>
+            </Stack>
             <TextField
               label="Notas"
               value={saleForm.notes}

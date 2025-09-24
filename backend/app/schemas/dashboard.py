@@ -11,6 +11,7 @@ class CashSummary(BaseModel):
     coffee_inventory_value: float
     green_inventory_value: float
     roasted_inventory_value: float
+    total_debt: float
 
 
 class InventorySummary(BaseModel):

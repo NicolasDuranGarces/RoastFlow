@@ -54,6 +54,9 @@ export interface Sale {
   sale_date: string;
   total_quantity_g: number;
   total_price: number;
+  is_paid: boolean;
+  amount_paid: number;
+  paid_at?: string | null;
   notes?: string | null;
   items: SaleItem[];
 }
@@ -89,6 +92,7 @@ export interface CashSummary {
   coffee_inventory_value: number;
   green_inventory_value: number;
   roasted_inventory_value: number;
+  total_debt: number;
 }
 
 export interface DashboardSummary {
@@ -97,4 +101,13 @@ export interface DashboardSummary {
   recent_purchases: CoffeeLot[];
   recent_expenses: Expense[];
   recent_sales: Sale[];
+}
+
+export interface PriceReference {
+  id: number;
+  variety_id?: number | null;
+  process: string;
+  bag_size_g: number;
+  price: number;
+  notes?: string | null;
 }

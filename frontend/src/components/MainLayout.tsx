@@ -21,6 +21,8 @@ import AccountBalanceWalletRoundedIcon from "@mui/icons-material/AccountBalanceW
 import GroupsRoundedIcon from "@mui/icons-material/GroupsRounded";
 import ManageAccountsRoundedIcon from "@mui/icons-material/ManageAccountsRounded";
 import LogoutRoundedIcon from "@mui/icons-material/LogoutRounded";
+import AssignmentLateRoundedIcon from "@mui/icons-material/AssignmentLateRounded";
+import LocalOfferRoundedIcon from "@mui/icons-material/LocalOfferRounded";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 
 import { useAuth } from "../hooks/useAuth";
@@ -34,7 +36,9 @@ const navItems = [
   { label: "Lotes", to: "/lots", icon: <Inventory2RoundedIcon /> },
   { label: "Tostiones", to: "/roasts", icon: <LocalFireDepartmentRoundedIcon /> },
   { label: "Ventas", to: "/sales", icon: <ShoppingCartRoundedIcon /> },
+  { label: "Deudas", to: "/debts", icon: <AssignmentLateRoundedIcon /> },
   { label: "Clientes", to: "/customers", icon: <GroupsRoundedIcon /> },
+  { label: "Referencias de precio", to: "/price-references", icon: <LocalOfferRoundedIcon /> },
   { label: "Usuarios", to: "/users", icon: <ManageAccountsRoundedIcon />, adminOnly: true },
   { label: "Gastos", to: "/expenses", icon: <AccountBalanceWalletRoundedIcon /> }
 ];
@@ -46,7 +50,9 @@ const sectionDescriptions: Record<string, string> = {
   Lotes: "Compras de café verde y su trazabilidad",
   Tostiones: "Historial y registro de tostiones",
   Ventas: "Seguimiento comercial y facturación",
+  Deudas: "Control de cuentas por cobrar",
   Clientes: "Directorio y relaciones comerciales",
+  "Referencias de precio": "Catálogo de precios por variedad y presentación",
   Usuarios: "Administración de cuentas internas",
   Gastos: "Control de egresos operativos"
 };

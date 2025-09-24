@@ -80,6 +80,14 @@ export const fetchSales = () => api.get("/api/v1/sales/");
 export const createSale = (payload: Record<string, unknown>) => api.post("/api/v1/sales/", payload);
 export const updateSale = (id: number, payload: Record<string, unknown>) => api.put(`/api/v1/sales/${id}`, payload);
 export const deleteSale = (id: number) => api.delete(`/api/v1/sales/${id}`);
+export const fetchSalesDebts = () => api.get("/api/v1/sales/debts");
+
+export const fetchPriceReferences = () => api.get("/api/v1/price-references/");
+export const createPriceReference = (payload: Record<string, unknown>) =>
+  api.post("/api/v1/price-references/", payload);
+export const updatePriceReference = (id: number, payload: Record<string, unknown>) =>
+  api.put(`/api/v1/price-references/${id}`, payload);
+export const deletePriceReference = (id: number) => api.delete(`/api/v1/price-references/${id}`);
 
 export const fetchExpenses = () => api.get("/api/v1/expenses/");
 export const createExpense = (payload: Record<string, unknown>) => api.post("/api/v1/expenses/", payload);

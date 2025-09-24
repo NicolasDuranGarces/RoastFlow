@@ -12,6 +12,8 @@ import LotsPage from "./pages/LotsPage";
 import RoastsPage from "./pages/RoastsPage";
 import SalesPage from "./pages/SalesPage";
 import VarietiesPage from "./pages/VarietiesPage";
+import DebtsPage from "./pages/DebtsPage";
+import PriceReferencePage from "./pages/PriceReferencePage";
 
 const App = () => {
   return (
@@ -32,8 +34,10 @@ const App = () => {
         <Route path="lots" element={<LotsPage />} />
         <Route path="roasts" element={<RoastsPage />} />
         <Route path="sales" element={<SalesPage />} />
+        <Route path="debts" element={<DebtsPage />} />
         <Route path="expenses" element={<ExpensesPage />} />
         <Route path="customers" element={<CustomersPage />} />
+        <Route path="price-references" element={<PriceReferencePage />} />
         <Route path="users" element={<UsersPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/dashboard" replace />} />

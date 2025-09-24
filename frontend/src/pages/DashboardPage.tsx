@@ -1,5 +1,6 @@
-import { Box, Card, CardContent, CardHeader, Divider, Grid, LinearProgress, Stack, Typography } from "@mui/material";
+import { Box, Button, Card, CardContent, CardHeader, Divider, Grid, LinearProgress, Stack, Typography } from "@mui/material";
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 import { fetchDashboardSummary } from "../services/api";
 import type { DashboardSummary, SaleItem } from "../types";
@@ -14,6 +15,7 @@ const formatDate = (value: string) =>
   new Date(value).toLocaleDateString("es-CO", { year: "numeric", month: "short", day: "numeric" });
 
 const DashboardPage = () => {
+  const navigate = useNavigate();
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -47,6 +49,7 @@ const DashboardPage = () => {
       totalExpenses: summary.cash.total_expenses,
       expectedCash: summary.cash.expected_cash,
       coffeeValue: summary.cash.coffee_inventory_value,
+      totalDebt: summary.cash.total_debt,
     };
   }, [summary]);
 
@@ -155,6 +158,23 @@ const DashboardPage = () => {
                 <Typography variant="overline">Inversión total en café</Typography>
                 <Typography variant="h6">{formatCurrency(cash.total_purchases)}</Typography>
               </Stack>
+              <Stack spacing={0.25}>
+                <Typography variant="overline">Deuda pendiente</Typography>
+                <Typography variant="h5" color={cash.total_debt > 0 ? "error.main" : "success.main"}>
+                  {formatCurrency(cash.total_debt)}
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Clientes con saldo por cobrar
+                </Typography>
+              </Stack>
+              <Button
+                variant="outlined"
+                size="small"
+                onClick={() => navigate("/debts")}
+                sx={{ alignSelf: "flex-start" }}
+              >
+                Ver deudas
+              </Button>
             </Stack>
           </CardContent>
         </Card>
@@ -199,14 +219,22 @@ const DashboardPage = () => {
                 recent_sales.map((sale) => (
                   <Box key={sale.id}>
                     <Typography variant="subtitle2">{`Venta #${sale.id} · ${formatCurrency(sale.total_price)}`}</Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      {`${formatDate(sale.sale_date)} · ${formatGrams(sale.total_quantity_g)} · ${saleSummaryLine(
-                        sale.items ?? []
-                      )}`}
-                    </Typography>
-                  </Box>
-                ))
-              )}
+                  <Typography variant="body2" color="text.secondary">
+                    {`${formatDate(sale.sale_date)} · ${formatGrams(sale.total_quantity_g)} · ${saleSummaryLine(
+                      sale.items ?? []
+                    )}`}
+                  </Typography>
+                  <Typography
+                    variant="caption"
+                    color={sale.total_price - sale.amount_paid > 0 ? "error" : "text.secondary"}
+                  >
+                    {sale.total_price - sale.amount_paid > 0
+                      ? `Saldo pendiente: ${formatCurrency(Math.max(sale.total_price - sale.amount_paid, 0))}`
+                      : `Pagado: ${formatCurrency(sale.amount_paid)}`}
+                  </Typography>
+                </Box>
+              ))
+            )}
             </Stack>
           </CardContent>
         </Card>

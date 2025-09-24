@@ -87,6 +87,15 @@ def get_dashboard_summary(
         .limit(RECENT_LIMIT)
     ).all()
 
+    total_debt = session.exec(
+        select(
+            func.coalesce(
+                func.sum(Sale.total_price - func.coalesce(Sale.amount_paid, 0.0)),
+                0.0,
+            )
+        ).where(Sale.total_price > func.coalesce(Sale.amount_paid, 0.0) + 1e-6)
+    ).one()
+
     return DashboardSummary(
         cash=CashSummary(
             expected_cash=expected_cash,
@@ -96,6 +105,7 @@ def get_dashboard_summary(
             coffee_inventory_value=coffee_inventory_value,
             green_inventory_value=green_inventory_value,
             roasted_inventory_value=roasted_inventory_value,
+            total_debt=total_debt,
         ),
         inventory=InventorySummary(
             green_available_g=max(green_available, 0.0),

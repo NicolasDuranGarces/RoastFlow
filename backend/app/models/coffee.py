@@ -142,6 +142,9 @@ class SaleBase(SQLModel):
     customer_id: Optional[int] = Field(default=None, foreign_key="customer.id")
     sale_date: date
     notes: Optional[str] = None
+    is_paid: bool = Field(default=True)
+    amount_paid: float = Field(default=0.0)
+    paid_at: Optional[date] = None
 
 
 class Sale(SaleBase, table=True):
@@ -153,8 +156,14 @@ class Sale(SaleBase, table=True):
         sa_relationship_kwargs={"cascade": "all, delete-orphan"},
     )
 
+    @property
+    def balance_due(self) -> float:
+        paid = self.amount_paid or 0.0
+        return max(self.total_price - paid, 0.0)
+
 
 class SaleCreate(SaleBase):
+    amount_paid: Optional[float] = None
     items: list["SaleItemCreate"]
 
 
@@ -170,6 +179,9 @@ class SaleUpdate(SQLModel):
     sale_date: Optional[date] = None
     notes: Optional[str] = None
     items: Optional[list["SaleItemCreate"]] = None
+    is_paid: Optional[bool] = None
+    amount_paid: Optional[float] = None
+    paid_at: Optional[date] = None
 
 
 class SaleItemBase(SQLModel):
@@ -201,6 +213,34 @@ SaleRead.model_rebuild()
 SaleUpdate.model_rebuild()
 SaleItemCreate.model_rebuild()
 SaleItemRead.model_rebuild()
+
+
+class PriceReferenceBase(SQLModel):
+    variety_id: Optional[int] = Field(default=None, foreign_key="variety.id")
+    process: str
+    bag_size_g: int
+    price: float
+    notes: Optional[str] = None
+
+
+class PriceReference(PriceReferenceBase, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+
+
+class PriceReferenceCreate(PriceReferenceBase):
+    pass
+
+
+class PriceReferenceRead(PriceReferenceBase):
+    id: int
+
+
+class PriceReferenceUpdate(SQLModel):
+    variety_id: Optional[int] = None
+    process: Optional[str] = None
+    bag_size_g: Optional[int] = None
+    price: Optional[float] = None
+    notes: Optional[str] = None
 
 
 class ExpenseBase(SQLModel):
