@@ -1,12 +1,15 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy import func
+from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
 
 from ...models import CoffeeLot, Expense, RoastBatch, Sale
-from ...schemas.dashboard import DashboardSummary, FinancialSummary, InventorySummary, RoastSummary
+from ...schemas.dashboard import CashSummary, DashboardSummary, InventorySummary
 from ..deps import get_current_active_user, get_session
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
+
+RECENT_LIMIT = 5
 
 
 @router.get("/summary", response_model=DashboardSummary)
@@ -24,12 +27,17 @@ def get_dashboard_summary(
         select(func.coalesce(func.sum(RoastBatch.green_input_g), 0.0))
     ).one()
     total_roasted_sold = session.exec(
-        select(func.coalesce(func.sum(Sale.quantity_g), 0.0))
+        select(func.coalesce(func.sum(Sale.total_quantity_g), 0.0))
     ).one()
     total_sales_quantity = total_roasted_sold
 
     purchase_costs = session.exec(
-        select(func.coalesce(func.sum(CoffeeLot.green_weight_g * CoffeeLot.price_per_g), 0.0))
+        select(
+            func.coalesce(
+                func.sum(CoffeeLot.green_weight_g * (CoffeeLot.price_per_kg / 1000.0)),
+                0.0,
+            )
+        )
     ).one()
     total_sales_amount = session.exec(
         select(func.coalesce(func.sum(Sale.total_price), 0.0))
@@ -40,29 +48,60 @@ def get_dashboard_summary(
 
     green_available = total_green_purchased - total_green_used
     roasted_available = total_roasted_produced - total_roasted_sold
-    net_profit = total_sales_amount - (total_expenses_amount + purchase_costs)
     average_price_per_g = total_sales_amount / total_sales_quantity if total_sales_quantity > 0 else 0.0
-    projected_full_sale_value = max(roasted_available, 0.0) * average_price_per_g
-    projected_half_sale_value = projected_full_sale_value * 0.5
+
+    usage_by_lot = {
+        lot_id: used
+        for lot_id, used in session.exec(
+            select(RoastBatch.lot_id, func.coalesce(func.sum(RoastBatch.green_input_g), 0.0)).group_by(RoastBatch.lot_id)
+        )
+    }
+
+    lots = session.exec(select(CoffeeLot)).all()
+    green_inventory_value = 0.0
+    for lot in lots:
+        used = usage_by_lot.get(lot.id, 0.0)
+        remaining = max(lot.green_weight_g - used, 0.0)
+        green_inventory_value += (remaining / 1000.0) * lot.price_per_kg
+
+    roasted_inventory_value = max(roasted_available, 0.0) * average_price_per_g
+    coffee_inventory_value = green_inventory_value + roasted_inventory_value
+    expected_cash = total_sales_amount - (total_expenses_amount + purchase_costs)
+
+    recent_purchases = session.exec(
+        select(CoffeeLot)
+        .order_by(CoffeeLot.purchase_date.desc(), CoffeeLot.id.desc())
+        .limit(RECENT_LIMIT)
+    ).all()
+
+    recent_expenses = session.exec(
+        select(Expense)
+        .order_by(Expense.expense_date.desc(), Expense.id.desc())
+        .limit(RECENT_LIMIT)
+    ).all()
+
+    recent_sales = session.exec(
+        select(Sale)
+        .options(selectinload(Sale.items))
+        .order_by(Sale.sale_date.desc(), Sale.id.desc())
+        .limit(RECENT_LIMIT)
+    ).all()
 
     return DashboardSummary(
+        cash=CashSummary(
+            expected_cash=expected_cash,
+            total_sales=total_sales_amount,
+            total_purchases=purchase_costs,
+            total_expenses=total_expenses_amount,
+            coffee_inventory_value=coffee_inventory_value,
+            green_inventory_value=green_inventory_value,
+            roasted_inventory_value=roasted_inventory_value,
+        ),
         inventory=InventorySummary(
             green_available_g=max(green_available, 0.0),
             roasted_available_g=max(roasted_available, 0.0),
         ),
-        financials=FinancialSummary(
-            total_sales=total_sales_amount,
-            total_expenses=total_expenses_amount,
-            purchase_costs=purchase_costs,
-            net_profit=net_profit,
-            total_quantity_sold=total_sales_quantity,
-            average_price_per_g=average_price_per_g,
-            projected_full_sale_value=projected_full_sale_value,
-            projected_half_sale_value=projected_half_sale_value,
-        ),
-        roasts=RoastSummary(
-            total_green_purchased=total_green_purchased,
-            total_roasted_produced=total_roasted_produced,
-            total_roasted_sold=total_roasted_sold,
-        ),
+        recent_purchases=recent_purchases,
+        recent_expenses=recent_expenses,
+        recent_sales=recent_sales,
     )

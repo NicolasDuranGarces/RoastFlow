@@ -16,6 +16,7 @@ import {
   TableCell,
   TableHead,
   TableRow,
+  TablePagination,
   TextField,
   Tooltip,
   Typography
@@ -71,6 +72,8 @@ const RoastsPage = () => {
   const [deleteTarget, setDeleteTarget] = useState<RoastBatch | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
 
   const loadData = useMemo(
     () =>
@@ -187,10 +190,29 @@ const RoastsPage = () => {
     });
   }, [filters, roasts, lots]);
 
+  const sortedRoasts = useMemo(() => {
+    return [...filteredRoasts].sort((a, b) => {
+      const dateDiff = new Date(b.roast_date).getTime() - new Date(a.roast_date).getTime();
+      if (dateDiff !== 0) {
+        return dateDiff;
+      }
+      return b.id - a.id;
+    });
+  }, [filteredRoasts]);
+
+  const paginatedRoasts = useMemo(() => {
+    const start = page * rowsPerPage;
+    return sortedRoasts.slice(start, start + rowsPerPage);
+  }, [sortedRoasts, page, rowsPerPage]);
+
   const isFiltering = useMemo(
     () => Object.values(filters).some((value) => value.toString().trim() !== ""),
     [filters]
   );
+
+  useEffect(() => {
+    setPage(0);
+  }, [filteredRoasts.length]);
 
   const resetForm = () => {
     setForm(initialForm);
@@ -311,7 +333,7 @@ const RoastsPage = () => {
       <Card sx={{ display: "flex", flexDirection: "column", flexGrow: 1 }}>
         <CardHeader
           title="Historial tostiones"
-          subheader={`${filteredRoasts.length} de ${roasts.length} registros`}
+          subheader={`${sortedRoasts.length} de ${roasts.length} registros`}
           action={
             <Button startIcon={<AddRoundedIcon />} variant="contained" onClick={openCreateDialog}>
               Nueva tostion
@@ -429,7 +451,7 @@ const RoastsPage = () => {
               </TableRow>
             </TableHead>
             <TableBody>
-              {filteredRoasts.length === 0 ? (
+              {sortedRoasts.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={6}>
                     <Typography variant="body2" color="text.secondary">
@@ -440,7 +462,7 @@ const RoastsPage = () => {
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredRoasts.map((roast) => {
+                paginatedRoasts.map((roast) => {
                   const lot = lots.find((candidate) => candidate.id === roast.lot_id);
                   const varietyName = lot
                     ? varieties.find((variety) => variety.id === lot.variety_id)?.name ?? "Variedad desconocida"
@@ -513,6 +535,19 @@ const RoastsPage = () => {
               )}
             </TableBody>
           </Table>
+          <TablePagination
+            component="div"
+            count={sortedRoasts.length}
+            page={page}
+            onPageChange={(_, nextPage) => setPage(nextPage)}
+            rowsPerPage={rowsPerPage}
+            onRowsPerPageChange={(event) => {
+              setRowsPerPage(parseInt(event.target.value, 10));
+              setPage(0);
+            }}
+            rowsPerPageOptions={[5, 10, 20]}
+            labelRowsPerPage="Filas por página"
+          />
         </CardContent>
       </Card>
       <ConfirmDialog

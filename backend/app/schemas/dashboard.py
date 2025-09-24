@@ -1,29 +1,26 @@
 from pydantic import BaseModel
 
+from ..models import CoffeeLotRead, ExpenseRead, SaleRead
+
+
+class CashSummary(BaseModel):
+    expected_cash: float
+    total_sales: float
+    total_purchases: float
+    total_expenses: float
+    coffee_inventory_value: float
+    green_inventory_value: float
+    roasted_inventory_value: float
+
 
 class InventorySummary(BaseModel):
     green_available_g: float
     roasted_available_g: float
 
 
-class FinancialSummary(BaseModel):
-    total_sales: float
-    total_expenses: float
-    purchase_costs: float
-    net_profit: float
-    total_quantity_sold: float
-    average_price_per_g: float
-    projected_full_sale_value: float
-    projected_half_sale_value: float
-
-
-class RoastSummary(BaseModel):
-    total_green_purchased: float
-    total_roasted_produced: float
-    total_roasted_sold: float
-
-
 class DashboardSummary(BaseModel):
+    cash: CashSummary
     inventory: InventorySummary
-    financials: FinancialSummary
-    roasts: RoastSummary
+    recent_purchases: list[CoffeeLotRead]
+    recent_expenses: list[ExpenseRead]
+    recent_sales: list[SaleRead]

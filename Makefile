@@ -1,7 +1,7 @@
 SHELL := /bin/bash
 COMPOSE ?= docker compose
 
-.PHONY: build up down logs ps restart backend-shell frontend-shell db-shell
+.PHONY: build up down logs ps restart backend-shell frontend-shell db-shell migrate-kg-sql
 
 build:
 	$(COMPOSE) build
@@ -29,3 +29,6 @@ frontend-shell:
 
 db-shell:
 	$(COMPOSE) exec db psql -U postgres -d tuestecafe
+
+migrate-kg-sql:
+	cat backend/sql/convert_kg_to_g.sql | $(COMPOSE) exec -T db psql -U postgres -d tuestecafe

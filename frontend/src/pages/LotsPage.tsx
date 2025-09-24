@@ -16,6 +16,7 @@ import {
   TableCell,
   TableHead,
   TableRow,
+  TablePagination,
   TextField,
   Tooltip
 } from "@mui/material";
@@ -34,7 +35,7 @@ const processOptions = ["Lavado", "Semilavado", "Honey", "Natural"];
 const formatGrams = (value: number) =>
   value.toLocaleString("es-CO", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 
-const formatPricePerGram = (value: number) =>
+const formatPricePerKg = (value: number) =>
   value.toLocaleString("es-CO", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 const initialForm = {
@@ -43,7 +44,7 @@ const initialForm = {
   process: processOptions[0],
   purchase_date: new Date().toISOString().slice(0, 10),
   green_weight_g: "",
-  price_per_g: "",
+  price_per_kg: "",
   moisture_level: "",
   notes: ""
 };
@@ -69,6 +70,8 @@ const LotsPage = () => {
   const [deleteTarget, setDeleteTarget] = useState<CoffeeLot | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
 
   const loadData = useMemo(
     () =>
@@ -124,13 +127,13 @@ const LotsPage = () => {
       }
       if (filters.minPrice) {
         const minPrice = Number(filters.minPrice);
-        if (!Number.isNaN(minPrice) && lot.price_per_g < minPrice) {
+        if (!Number.isNaN(minPrice) && lot.price_per_kg < minPrice) {
           return false;
         }
       }
       if (filters.maxPrice) {
         const maxPrice = Number(filters.maxPrice);
-        if (!Number.isNaN(maxPrice) && lot.price_per_g > maxPrice) {
+        if (!Number.isNaN(maxPrice) && lot.price_per_kg > maxPrice) {
           return false;
         }
       }
@@ -138,10 +141,29 @@ const LotsPage = () => {
     });
   }, [filters, lots]);
 
+  const sortedLots = useMemo(() => {
+    return [...filteredLots].sort((a, b) => {
+      const dateDiff = new Date(b.purchase_date).getTime() - new Date(a.purchase_date).getTime();
+      if (dateDiff !== 0) {
+        return dateDiff;
+      }
+      return b.id - a.id;
+    });
+  }, [filteredLots]);
+
+  const paginatedLots = useMemo(() => {
+    const start = page * rowsPerPage;
+    return sortedLots.slice(start, start + rowsPerPage);
+  }, [sortedLots, page, rowsPerPage]);
+
   const isFiltering = useMemo(
     () => Object.values(filters).some((value) => value.toString().trim() !== ""),
     [filters]
   );
+
+  useEffect(() => {
+    setPage(0);
+  }, [filteredLots.length]);
 
   const resetForm = () => {
     setForm(initialForm);
@@ -168,7 +190,7 @@ const LotsPage = () => {
         process: form.process,
         purchase_date: form.purchase_date,
         green_weight_g: Number(form.green_weight_g),
-        price_per_g: Number(form.price_per_g),
+        price_per_kg: Number(form.price_per_kg),
         moisture_level: form.moisture_level ? Number(form.moisture_level) : null,
         notes: form.notes
       };
@@ -195,7 +217,7 @@ const LotsPage = () => {
       process: lot.process,
       purchase_date: lot.purchase_date,
       green_weight_g: String(lot.green_weight_g),
-      price_per_g: String(lot.price_per_g),
+      price_per_kg: String(lot.price_per_kg),
       moisture_level: lot.moisture_level ? String(lot.moisture_level) : "",
       notes: lot.notes ?? ""
     });
@@ -242,7 +264,7 @@ const LotsPage = () => {
       <Card sx={{ display: "flex", flexDirection: "column", flexGrow: 1 }}>
         <CardHeader
           title="Lotes registrados"
-          subheader={`${filteredLots.length} de ${lots.length} registros`}
+          subheader={`${sortedLots.length} de ${lots.length} registros`}
           action={
             <Button startIcon={<AddRoundedIcon />} variant="contained" onClick={openCreateDialog}>
               Nuevo lote
@@ -332,13 +354,13 @@ const LotsPage = () => {
               onChange={handleFilterChange("maxWeight")}
             />
             <TextField
-              label="Precio mínimo (por g)"
+              label="Precio mínimo (por kg)"
               type="number"
               value={filters.minPrice}
               onChange={handleFilterChange("minPrice")}
             />
             <TextField
-              label="Precio máximo (por g)"
+              label="Precio máximo (por kg)"
               type="number"
               value={filters.maxPrice}
               onChange={handleFilterChange("maxPrice")}
@@ -352,12 +374,12 @@ const LotsPage = () => {
                 <TableCell>Proceso</TableCell>
                 <TableCell>Fecha</TableCell>
                 <TableCell align="right">Gramos verdes</TableCell>
-                <TableCell align="right">Precio/g</TableCell>
+                <TableCell align="right">Precio/kg</TableCell>
                 <TableCell align="right">Acciones</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
-              {filteredLots.length === 0 ? (
+              {sortedLots.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7}>
                     {isFiltering
@@ -366,14 +388,14 @@ const LotsPage = () => {
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredLots.map((lot) => (
+                paginatedLots.map((lot) => (
                   <TableRow key={lot.id}>
                     <TableCell>{farms.find((f) => f.id === lot.farm_id)?.name ?? ""}</TableCell>
                     <TableCell>{varieties.find((v) => v.id === lot.variety_id)?.name ?? ""}</TableCell>
                     <TableCell>{lot.process}</TableCell>
                     <TableCell>{lot.purchase_date}</TableCell>
                     <TableCell align="right">{formatGrams(lot.green_weight_g)}</TableCell>
-                    <TableCell align="right">${formatPricePerGram(lot.price_per_g)}</TableCell>
+                    <TableCell align="right">${formatPricePerKg(lot.price_per_kg)}</TableCell>
                     <TableCell align="right">
                       <Tooltip title="Editar">
                         <IconButton color="primary" onClick={() => handleEdit(lot)}>
@@ -391,6 +413,19 @@ const LotsPage = () => {
               )}
             </TableBody>
           </Table>
+          <TablePagination
+            component="div"
+            count={sortedLots.length}
+            page={page}
+            onPageChange={(_, nextPage) => setPage(nextPage)}
+            rowsPerPage={rowsPerPage}
+            onRowsPerPageChange={(event) => {
+              setRowsPerPage(parseInt(event.target.value, 10));
+              setPage(0);
+            }}
+            rowsPerPageOptions={[5, 10, 20]}
+            labelRowsPerPage="Filas por página"
+          />
         </CardContent>
       </Card>
       <ConfirmDialog
@@ -469,10 +504,10 @@ const LotsPage = () => {
               required
             />
             <TextField
-              label="Precio por gramo"
+              label="Precio por kilo"
               type="number"
-              value={form.price_per_g}
-              onChange={(e) => setForm((prev) => ({ ...prev, price_per_g: e.target.value }))}
+              value={form.price_per_kg}
+              onChange={(e) => setForm((prev) => ({ ...prev, price_per_kg: e.target.value }))}
               inputProps={{ min: 0, step: "0.01" }}
               required
             />

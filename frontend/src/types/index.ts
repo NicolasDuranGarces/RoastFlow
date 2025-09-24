@@ -26,7 +26,7 @@ export interface CoffeeLot {
   process: string;
   purchase_date: string;
   green_weight_g: number;
-  price_per_g: number;
+  price_per_kg: number;
   moisture_level?: number | null;
   notes?: string | null;
 }
@@ -50,12 +50,21 @@ export interface Customer {
 
 export interface Sale {
   id: number;
-  roast_batch_id: number;
   customer_id?: number | null;
   sale_date: string;
-  quantity_g: number;
-  price_per_g: number;
+  total_quantity_g: number;
   total_price: number;
+  notes?: string | null;
+  items: SaleItem[];
+}
+
+export interface SaleItem {
+  id: number;
+  sale_id: number;
+  roast_batch_id: number;
+  bag_size_g: number;
+  bags: number;
+  bag_price: number;
   notes?: string | null;
 }
 
@@ -72,25 +81,20 @@ export interface InventorySummary {
   roasted_available_g: number;
 }
 
-export interface FinancialSummary {
+export interface CashSummary {
+  expected_cash: number;
   total_sales: number;
+  total_purchases: number;
   total_expenses: number;
-  purchase_costs: number;
-  net_profit: number;
-  total_quantity_sold: number;
-  average_price_per_g: number;
-  projected_full_sale_value: number;
-  projected_half_sale_value: number;
-}
-
-export interface RoastSummary {
-  total_green_purchased: number;
-  total_roasted_produced: number;
-  total_roasted_sold: number;
+  coffee_inventory_value: number;
+  green_inventory_value: number;
+  roasted_inventory_value: number;
 }
 
 export interface DashboardSummary {
+  cash: CashSummary;
   inventory: InventorySummary;
-  financials: FinancialSummary;
-  roasts: RoastSummary;
+  recent_purchases: CoffeeLot[];
+  recent_expenses: Expense[];
+  recent_sales: Sale[];
 }

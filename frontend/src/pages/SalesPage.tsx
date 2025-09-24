@@ -16,6 +16,7 @@ import {
   TableCell,
   TableHead,
   TableRow,
+  TablePagination,
   TextField,
   Tooltip,
   Typography
@@ -44,16 +45,39 @@ import FilterPanel from "../components/FilterPanel";
 const formatGrams = (value: number) =>
   value.toLocaleString("es-CO", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 
-const formatPricePerGram = (value: number) =>
-  value.toLocaleString("es-CO", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const formatCurrency = (value: number) =>
+  value.toLocaleString("es-CO", { style: "currency", currency: "COP", minimumFractionDigits: 0 });
+
+const BAG_SIZES = [250, 340, 500, 2500] as const;
+
+type SaleItemForm = {
+  roast_batch_id: string;
+  bag_size_g: number;
+  bags: string;
+  bag_price: string;
+  notes: string;
+};
+
+type SaleItemFormError = {
+  roast?: string;
+  bags?: string;
+  bag_price?: string;
+  availability?: string;
+};
+
+const createEmptySaleItem = (): SaleItemForm => ({
+  roast_batch_id: "",
+  bag_size_g: BAG_SIZES[0],
+  bags: "1",
+  bag_price: "",
+  notes: ""
+});
 
 const buildEmptySaleForm = () => ({
-  roast_batch_id: "",
   customer_id: "",
   sale_date: new Date().toISOString().slice(0, 10),
-  quantity_g: "",
-  price_per_g: "",
-  notes: ""
+  notes: "",
+  items: [createEmptySaleItem()]
 });
 
 const MIN_AVAILABLE_ROAST_G = 100;
@@ -71,7 +95,8 @@ const SalesPage = () => {
   const [saleForm, setSaleForm] = useState(buildEmptySaleForm);
   const [saleEditingId, setSaleEditingId] = useState<number | null>(null);
   const [saleSaving, setSaleSaving] = useState(false);
-  const [saleErrors, setSaleErrors] = useState<{ quantity?: string; price?: string }>({});
+  const [saleItemErrors, setSaleItemErrors] = useState<Record<number, SaleItemFormError>>({});
+  const [generalSaleError, setGeneralSaleError] = useState<string | null>(null);
   const [filters, setFilters] = useState({
     dateFrom: "",
     dateTo: "",
@@ -89,6 +114,8 @@ const SalesPage = () => {
   const [deleteTarget, setDeleteTarget] = useState<Sale | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
 
   const loadData = useMemo(
     () =>
@@ -133,33 +160,35 @@ const SalesPage = () => {
       return 0;
     }
     const used = sales.reduce((total, current) => {
-      if (current.roast_batch_id !== roastId) {
-        return total;
-      }
       if (ignoreSaleId && current.id === ignoreSaleId) {
         return total;
       }
-      return total + current.quantity_g;
+      const roastUsage = current.items?.reduce((sum, item) => {
+        if (item.roast_batch_id !== roastId) {
+          return sum;
+        }
+        return sum + item.bag_size_g * item.bags;
+      }, 0) ?? 0;
+      return total + roastUsage;
     }, 0);
     return Math.max(0, roast.roasted_output_g - used);
   };
 
-  const availableForSelectedRoast = useMemo(() => {
-    if (!saleForm.roast_batch_id) {
-      return null;
-    }
-    return getAvailableRoastedGrams(Number(saleForm.roast_batch_id), saleEditingId);
-  }, [saleForm.roast_batch_id, saleEditingId, roasts, sales]);
-
   const roastOptions = useMemo(() => {
+    const selectedInForm = new Set(
+      saleForm.items
+        .map((item) => Number(item.roast_batch_id))
+        .filter((roastId) => !Number.isNaN(roastId) && roastId > 0)
+    );
+
     return roasts.filter((roast) => {
-      const available = getAvailableRoastedGrams(roast.id, saleEditingId);
-      if (saleEditingId && Number(saleForm.roast_batch_id) === roast.id) {
+      if (selectedInForm.has(roast.id)) {
         return true;
       }
+      const available = getAvailableRoastedGrams(roast.id, saleEditingId);
       return available >= MIN_AVAILABLE_ROAST_G;
     });
-  }, [roasts, sales, saleEditingId, saleForm.roast_batch_id]);
+  }, [roasts, saleForm.items, saleEditingId, sales]);
 
   const filteredSales = useMemo(() => {
     return sales.filter((sale) => {
@@ -169,8 +198,11 @@ const SalesPage = () => {
       if (filters.dateTo && sale.sale_date > filters.dateTo) {
         return false;
       }
-      if (filters.roastId && sale.roast_batch_id !== Number(filters.roastId)) {
-        return false;
+      if (filters.roastId) {
+        const matchesRoast = sale.items?.some((item) => item.roast_batch_id === Number(filters.roastId));
+        if (!matchesRoast) {
+          return false;
+        }
       }
       if (filters.customerId) {
         const customerId = sale.customer_id ?? null;
@@ -183,28 +215,34 @@ const SalesPage = () => {
       }
       if (filters.minQuantity) {
         const minQuantity = Number(filters.minQuantity);
-        if (!Number.isNaN(minQuantity) && sale.quantity_g < minQuantity) {
+        if (!Number.isNaN(minQuantity) && sale.total_quantity_g < minQuantity) {
           return false;
         }
       }
       if (filters.maxQuantity) {
         const maxQuantity = Number(filters.maxQuantity);
-        if (!Number.isNaN(maxQuantity) && sale.quantity_g > maxQuantity) {
+        if (!Number.isNaN(maxQuantity) && sale.total_quantity_g > maxQuantity) {
           return false;
         }
       }
+
+      const itemPrices = sale.items?.map((item) => item.bag_price) ?? [];
+      const highestBagPrice = itemPrices.length ? Math.max(...itemPrices) : 0;
+      const lowestBagPrice = itemPrices.length ? Math.min(...itemPrices) : 0;
+
       if (filters.minPrice) {
         const minPrice = Number(filters.minPrice);
-        if (!Number.isNaN(minPrice) && sale.price_per_g < minPrice) {
+        if (!Number.isNaN(minPrice) && highestBagPrice < minPrice) {
           return false;
         }
       }
       if (filters.maxPrice) {
         const maxPrice = Number(filters.maxPrice);
-        if (!Number.isNaN(maxPrice) && sale.price_per_g > maxPrice) {
+        if (!Number.isNaN(maxPrice) && (lowestBagPrice === 0 || lowestBagPrice > maxPrice)) {
           return false;
         }
       }
+
       if (filters.minTotal) {
         const minTotal = Number(filters.minTotal);
         if (!Number.isNaN(minTotal) && sale.total_price < minTotal) {
@@ -221,12 +259,15 @@ const SalesPage = () => {
         return false;
       }
       if (filters.varietyId) {
-        const roast = roasts.find((candidate) => candidate.id === sale.roast_batch_id);
-        if (!roast) {
-          return false;
-        }
-        const lot = lots.find((candidate) => candidate.id === roast.lot_id);
-        if (!lot || String(lot.variety_id) !== filters.varietyId) {
+        const matchesVariety = sale.items?.some((item) => {
+          const roast = roasts.find((candidate) => candidate.id === item.roast_batch_id);
+          if (!roast) {
+            return false;
+          }
+          const lot = lots.find((candidate) => candidate.id === roast.lot_id);
+          return lot ? String(lot.variety_id) === filters.varietyId : false;
+        });
+        if (!matchesVariety) {
           return false;
         }
       }
@@ -234,15 +275,40 @@ const SalesPage = () => {
     });
   }, [filters, sales, roasts, lots]);
 
+  const sortedSales = useMemo(() => {
+    return [...filteredSales].sort((a, b) => {
+      const dateDiff = new Date(b.sale_date).getTime() - new Date(a.sale_date).getTime();
+      if (dateDiff !== 0) {
+        return dateDiff;
+      }
+      return b.id - a.id;
+    });
+  }, [filteredSales]);
+
+  const paginatedSales = useMemo(() => {
+    const start = page * rowsPerPage;
+    return sortedSales.slice(start, start + rowsPerPage);
+  }, [sortedSales, page, rowsPerPage]);
+
+  const totalFilteredSalesAmount = useMemo(
+    () => filteredSales.reduce((sum, sale) => sum + sale.total_price, 0),
+    [filteredSales]
+  );
+
   const isFiltering = useMemo(
     () => Object.values(filters).some((value) => value.toString().trim() !== ""),
     [filters]
   );
 
+  useEffect(() => {
+    setPage(0);
+  }, [filteredSales.length]);
+
   const resetSaleForm = () => {
     setSaleForm(buildEmptySaleForm());
     setSaleEditingId(null);
-    setSaleErrors({});
+    setSaleItemErrors({});
+    setGeneralSaleError(null);
   };
 
   const openCreateDialog = () => {
@@ -255,39 +321,116 @@ const SalesPage = () => {
     setFilters((prev) => ({ ...prev, [field]: value.toString() }));
   };
 
+  const updateSaleItem = (index: number, updates: Partial<SaleItemForm>) => {
+    setSaleForm((prev) => {
+      const nextItems = prev.items.map((item, idx) => (idx === index ? { ...item, ...updates } : item));
+      return { ...prev, items: nextItems };
+    });
+    setSaleItemErrors((prev) => {
+      if (!prev[index]) {
+        return prev;
+      }
+      const next = { ...prev };
+      delete next[index];
+      return next;
+    });
+    setGeneralSaleError(null);
+  };
+
+  const addSaleItem = () => {
+    setSaleForm((prev) => ({ ...prev, items: [...prev.items, createEmptySaleItem()] }));
+    setGeneralSaleError(null);
+  };
+
+  const removeSaleItem = (index: number) => {
+    setSaleForm((prev) => ({
+      ...prev,
+      items: prev.items.filter((_, idx) => idx !== index)
+    }));
+    setSaleItemErrors({});
+    setGeneralSaleError(null);
+  };
+
   const handleSaveSale = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const payload = {
-      roast_batch_id: Number(saleForm.roast_batch_id),
-      customer_id: saleForm.customer_id ? Number(saleForm.customer_id) : null,
-      sale_date: saleForm.sale_date,
-      quantity_g: Number(saleForm.quantity_g),
-      price_per_g: Number(saleForm.price_per_g),
-      notes: saleForm.notes
-    };
+    const itemErrors: Record<number, SaleItemFormError> = {};
+    let hasErrors = false;
+    const totalsByRoast = new Map<number, number>();
 
-    const errors: { quantity?: string; price?: string } = {};
-    if (!payload.quantity_g || Number.isNaN(payload.quantity_g) || payload.quantity_g <= 0) {
-      errors.quantity = "Ingresa una cantidad mayor a cero";
-    }
-
-    if (payload.roast_batch_id && payload.quantity_g > 0) {
-      const available = getAvailableRoastedGrams(payload.roast_batch_id, saleEditingId);
-      if (payload.quantity_g > available) {
-        errors.quantity = `Solo hay ${formatGrams(available)} g tostados disponibles`;
-      }
-    }
-
-    if (!payload.price_per_g || Number.isNaN(payload.price_per_g) || payload.price_per_g <= 0) {
-      errors.price = "Ingresa un precio por gramo válido";
-    }
-
-    if (Object.keys(errors).length > 0) {
-      setSaleErrors(errors);
+    if (!saleForm.items.length) {
+      setGeneralSaleError("Agrega al menos una tostión a la venta");
       return;
     }
 
-    setSaleErrors({});
+    saleForm.items.forEach((item, index) => {
+      const currentErrors: SaleItemFormError = {};
+      const roastId = Number(item.roast_batch_id);
+      if (!item.roast_batch_id || Number.isNaN(roastId) || roastId <= 0) {
+        currentErrors.roast = "Selecciona una tostión";
+      }
+
+      const bags = Number(item.bags);
+      if (Number.isNaN(bags) || bags <= 0) {
+        currentErrors.bags = "Bolsas mayores a cero";
+      }
+
+      const bagPrice = Number(item.bag_price);
+      if (Number.isNaN(bagPrice) || bagPrice <= 0) {
+        currentErrors.bag_price = "Ingresa un precio válido";
+      }
+
+      if (!BAG_SIZES.includes(item.bag_size_g as (typeof BAG_SIZES)[number])) {
+        currentErrors.availability = "Selecciona un tamaño válido";
+      }
+
+      if (Object.keys(currentErrors).length === 0 && !Number.isNaN(roastId)) {
+        const grams = item.bag_size_g * Number(item.bags);
+        totalsByRoast.set(roastId, (totalsByRoast.get(roastId) ?? 0) + grams);
+      }
+
+      if (Object.keys(currentErrors).length > 0) {
+        itemErrors[index] = currentErrors;
+        hasErrors = true;
+      }
+    });
+
+    totalsByRoast.forEach((grams, roastId) => {
+      const available = getAvailableRoastedGrams(roastId, saleEditingId);
+      if (grams > available) {
+        hasErrors = true;
+        saleForm.items.forEach((item, index) => {
+          if (Number(item.roast_batch_id) === roastId) {
+            itemErrors[index] = {
+              ...itemErrors[index],
+              availability: `Solo hay ${formatGrams(available)} g disponibles`
+            };
+          }
+        });
+      }
+    });
+
+    if (hasErrors) {
+      setSaleItemErrors(itemErrors);
+      setGeneralSaleError("Corrige los campos marcados antes de guardar");
+      return;
+    }
+
+    setSaleItemErrors({});
+    setGeneralSaleError(null);
+
+    const payload = {
+      customer_id: saleForm.customer_id ? Number(saleForm.customer_id) : null,
+      sale_date: saleForm.sale_date,
+      notes: saleForm.notes.trim() ? saleForm.notes : undefined,
+      items: saleForm.items.map((item) => ({
+        roast_batch_id: Number(item.roast_batch_id),
+        bag_size_g: item.bag_size_g,
+        bags: Number(item.bags),
+        bag_price: Number(item.bag_price),
+        notes: item.notes.trim() ? item.notes : undefined
+      }))
+    };
+
     setSaleSaving(true);
     try {
       if (saleEditingId) {
@@ -307,14 +450,21 @@ const SalesPage = () => {
 
   const handleEditSale = (sale: Sale) => {
     setSaleEditingId(sale.id);
+    const mappedItems = (sale.items ?? []).map((item) => ({
+      roast_batch_id: String(item.roast_batch_id),
+      bag_size_g: item.bag_size_g,
+      bags: String(item.bags),
+      bag_price: String(item.bag_price),
+      notes: item.notes ?? ""
+    }));
     setSaleForm({
-      roast_batch_id: String(sale.roast_batch_id),
       customer_id: sale.customer_id ? String(sale.customer_id) : "",
       sale_date: sale.sale_date,
-      quantity_g: String(sale.quantity_g),
-      price_per_g: String(sale.price_per_g),
-      notes: sale.notes ?? ""
+      notes: sale.notes ?? "",
+      items: mappedItems.length ? mappedItems : [createEmptySaleItem()]
     });
+    setSaleItemErrors({});
+    setGeneralSaleError(null);
     setDialogOpen(true);
   };
 
@@ -358,7 +508,9 @@ const SalesPage = () => {
       <Card sx={{ display: "flex", flexDirection: "column", flexGrow: 1 }}>
         <CardHeader
           title="Historial de ventas"
-          subheader={`${filteredSales.length} de ${sales.length} registros`}
+          subheader={`${sortedSales.length} de ${sales.length} registros · Total mostrado: ${formatCurrency(
+            totalFilteredSalesAmount
+          )}`}
           action={
             <Button startIcon={<AddRoundedIcon />} variant="contained" onClick={openCreateDialog}>
               Nueva venta
@@ -439,13 +591,13 @@ const SalesPage = () => {
               onChange={handleFilterChange("maxQuantity")}
             />
             <TextField
-              label="Precio mínimo (por g)"
+              label="Precio mínimo (bolsa)"
               type="number"
               value={filters.minPrice}
               onChange={handleFilterChange("minPrice")}
             />
             <TextField
-              label="Precio máximo (por g)"
+              label="Precio máximo (bolsa)"
               type="number"
               value={filters.maxPrice}
               onChange={handleFilterChange("maxPrice")}
@@ -486,37 +638,26 @@ const SalesPage = () => {
             <TableHead>
               <TableRow>
                 <TableCell>Venta</TableCell>
-                <TableCell>Tostión</TableCell>
+                <TableCell>Detalle</TableCell>
                 <TableCell>Cliente</TableCell>
                 <TableCell align="right">Gramos</TableCell>
-                <TableCell align="right">Precio/g</TableCell>
                 <TableCell align="right">Total</TableCell>
                 <TableCell align="right">Acciones</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
-              {filteredSales.length === 0 ? (
+              {sortedSales.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7}>
+                  <TableCell colSpan={6}>
                     {isFiltering
                       ? "No hay ventas que coincidan con los filtros."
                       : "No hay ventas registradas."}
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredSales.map((sale) => {
-                  const roast = roasts.find((candidate) => candidate.id === sale.roast_batch_id);
-                  const lot = roast ? lots.find((candidate) => candidate.id === roast.lot_id) : undefined;
-                  const varietyName = lot
-                    ? varieties.find((variety) => variety.id === lot.variety_id)?.name ?? "Variedad desconocida"
-                    : "Variedad desconocida";
-                  const farmName = lot
-                    ? farms.find((farm) => farm.id === lot.farm_id)?.name ?? "Finca desconocida"
-                    : "Finca desconocida";
-                  const process = lot?.process ?? "Proceso N/D";
-                  const roastDate = roast ? new Date(roast.roast_date).toLocaleDateString() : "Fecha N/D";
-                  const available = roast ? getAvailableRoastedGrams(roast.id, sale.id) : 0;
+                paginatedSales.map((sale) => {
                   const customerName = customers.find((c) => c.id === sale.customer_id)?.name ?? "Venta mostrador";
+                  const saleItems = sale.items ?? [];
 
                   return (
                     <TableRow key={sale.id}>
@@ -531,16 +672,43 @@ const SalesPage = () => {
                         </Stack>
                       </TableCell>
                       <TableCell>
-                        <Stack spacing={0.5}>
-                          <Typography variant="body2" fontWeight={600}>
-                            {`Roast #${sale.roast_batch_id} · ${varietyName}`}
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            {`${roastDate} · ${process} · ${farmName}`}
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary">
-                              {`Disponible: ${formatGrams(available)} g`}
-                          </Typography>
+                        <Stack spacing={1}>
+                          {saleItems.length === 0 ? (
+                            <Typography variant="caption" color="text.secondary">
+                              Sin detalle disponible
+                            </Typography>
+                          ) : (
+                            saleItems.map((item) => {
+                              const roast = roasts.find((candidate) => candidate.id === item.roast_batch_id);
+                              const lot = roast ? lots.find((candidate) => candidate.id === roast.lot_id) : undefined;
+                              const varietyName = lot
+                                ? varieties.find((variety) => variety.id === lot.variety_id)?.name ?? "Variedad"
+                                : "Variedad";
+                              const farmName = lot
+                                ? farms.find((farm) => farm.id === lot.farm_id)?.name ?? "Finca"
+                                : "Finca";
+                              const process = lot?.process ?? "Proceso N/D";
+                              const roastDate = roast
+                                ? new Date(roast.roast_date).toLocaleDateString()
+                                : "Fecha N/D";
+
+                              return (
+                                <Box key={`${sale.id}-${item.id}`} sx={{ borderRadius: 1, bgcolor: "action.hover", p: 1 }}>
+                                  <Stack spacing={0.25}>
+                                    <Typography variant="body2" fontWeight={600}>
+                                      {`Roast #${item.roast_batch_id} · ${varietyName}`}
+                                    </Typography>
+                                    <Typography variant="caption" color="text.secondary">
+                                      {`${roastDate} · ${process} · ${farmName}`}
+                                    </Typography>
+                                    <Typography variant="caption" color="text.secondary">
+                                      {`${item.bags} bolsa(s) de ${item.bag_size_g} g · ${formatCurrency(item.bag_price)} c/u`}
+                                    </Typography>
+                                  </Stack>
+                                </Box>
+                              );
+                            })
+                          )}
                         </Stack>
                       </TableCell>
                       <TableCell>
@@ -555,9 +723,8 @@ const SalesPage = () => {
                           ) : null}
                         </Stack>
                       </TableCell>
-                      <TableCell align="right">{formatGrams(sale.quantity_g)}</TableCell>
-                      <TableCell align="right">${formatPricePerGram(sale.price_per_g)}</TableCell>
-                      <TableCell align="right">${sale.total_price.toFixed(2)}</TableCell>
+                      <TableCell align="right">{formatGrams(sale.total_quantity_g)}</TableCell>
+                      <TableCell align="right">{formatCurrency(sale.total_price)}</TableCell>
                       <TableCell align="right">
                         <Tooltip title="Editar">
                           <IconButton color="primary" onClick={() => handleEditSale(sale)}>
@@ -576,6 +743,19 @@ const SalesPage = () => {
               )}
             </TableBody>
           </Table>
+          <TablePagination
+            component="div"
+            count={sortedSales.length}
+            page={page}
+            onPageChange={(_, nextPage) => setPage(nextPage)}
+            rowsPerPage={rowsPerPage}
+            onRowsPerPageChange={(event) => {
+              setRowsPerPage(parseInt(event.target.value, 10));
+              setPage(0);
+            }}
+            rowsPerPageOptions={[5, 10, 20]}
+            labelRowsPerPage="Filas por página"
+          />
         </CardContent>
       </Card>
       <ConfirmDialog
@@ -597,39 +777,6 @@ const SalesPage = () => {
           <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
             <TextField
               select
-              label="Tostion"
-              value={saleForm.roast_batch_id}
-              onChange={(e) => setSaleForm((prev) => ({ ...prev, roast_batch_id: e.target.value }))}
-              required
-            >
-              {roastOptions.map((roast) => {
-                const lot = lots.find((candidate) => candidate.id === roast.lot_id);
-                const varietyName = lot
-                  ? varieties.find((variety) => variety.id === lot.variety_id)?.name ?? "Variedad desconocida"
-                  : "Variedad desconocida";
-                const farmName = lot
-                  ? farms.find((farm) => farm.id === lot.farm_id)?.name ?? "Finca desconocida"
-                  : "Finca desconocida";
-                const process = lot?.process ?? "Proceso N/D";
-                const roastDate = new Date(roast.roast_date).toLocaleDateString();
-                const available = getAvailableRoastedGrams(roast.id, saleEditingId);
-
-                return (
-                  <MenuItem key={roast.id} value={String(roast.id)}>
-                    <Box display="flex" flexDirection="column" alignItems="flex-start">
-                      <Typography variant="body2" fontWeight={600}>
-                        {`Roast #${roast.id} · ${varietyName}`}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {`${roastDate} · ${process} · ${farmName} · Disponible: ${formatGrams(available)} g`}
-                      </Typography>
-                    </Box>
-                  </MenuItem>
-                );
-              })}
-            </TextField>
-            <TextField
-              select
               label="Cliente"
               value={saleForm.customer_id}
               onChange={(e) => setSaleForm((prev) => ({ ...prev, customer_id: e.target.value }))}
@@ -649,31 +796,139 @@ const SalesPage = () => {
               onChange={(e) => setSaleForm((prev) => ({ ...prev, sale_date: e.target.value }))}
               required
             />
-            <TextField
-              label="Cantidad (g)"
-              type="number"
-              value={saleForm.quantity_g}
-              onChange={(e) => setSaleForm((prev) => ({ ...prev, quantity_g: e.target.value }))}
-              error={Boolean(saleErrors.quantity)}
-              helperText={
-                saleErrors.quantity ??
-                (availableForSelectedRoast != null
-                  ? `Disponible: ${formatGrams(availableForSelectedRoast)} g`
-                  : undefined)
-              }
-              inputProps={{ min: 0, step: "1" }}
-              required
-            />
-            <TextField
-              label="Precio por gramo"
-              type="number"
-              value={saleForm.price_per_g}
-              onChange={(e) => setSaleForm((prev) => ({ ...prev, price_per_g: e.target.value }))}
-              error={Boolean(saleErrors.price)}
-              helperText={saleErrors.price}
-              inputProps={{ min: 0, step: "0.01" }}
-              required
-            />
+            {generalSaleError ? (
+              <Typography variant="body2" color="error">
+                {generalSaleError}
+              </Typography>
+            ) : null}
+            <Stack spacing={2}>
+              {saleForm.items.map((item, index) => {
+                const selectedRoastId = Number(item.roast_batch_id);
+                const available = selectedRoastId
+                  ? getAvailableRoastedGrams(selectedRoastId, saleEditingId)
+                  : null;
+
+                return (
+                  <Box key={index} sx={{ border: 1, borderColor: "divider", borderRadius: 2, p: 2 }}>
+                    <Stack direction="row" alignItems="center" justifyContent="space-between" mb={2}>
+                      <Typography variant="subtitle2">{`Tostión ${index + 1}`}</Typography>
+                      {saleForm.items.length > 1 ? (
+                        <Tooltip title="Eliminar tostión">
+                          <span>
+                            <IconButton
+                              size="small"
+                              onClick={() => removeSaleItem(index)}
+                              disabled={saleForm.items.length === 1}
+                            >
+                              <DeleteRoundedIcon fontSize="small" />
+                            </IconButton>
+                          </span>
+                        </Tooltip>
+                      ) : null}
+                    </Stack>
+                    <Stack spacing={2}>
+                      <TextField
+                        select
+                        label="Tostión"
+                        value={item.roast_batch_id}
+                        onChange={(e) => updateSaleItem(index, { roast_batch_id: e.target.value })}
+                        error={Boolean(saleItemErrors[index]?.roast)}
+                        helperText={saleItemErrors[index]?.roast}
+                        required
+                      >
+                        {roastOptions.map((roast) => {
+                          const lot = lots.find((candidate) => candidate.id === roast.lot_id);
+                          const varietyName = lot
+                            ? varieties.find((variety) => variety.id === lot.variety_id)?.name ?? "Variedad"
+                            : "Variedad";
+                          const farmName = lot
+                            ? farms.find((farm) => farm.id === lot.farm_id)?.name ?? "Finca"
+                            : "Finca";
+                          const process = lot?.process ?? "Proceso N/D";
+                          const roastDate = new Date(roast.roast_date).toLocaleDateString();
+                          const availableRoast = getAvailableRoastedGrams(roast.id, saleEditingId);
+
+                          return (
+                            <MenuItem key={roast.id} value={String(roast.id)}>
+                              <Box display="flex" flexDirection="column" alignItems="flex-start">
+                                <Typography variant="body2" fontWeight={600}>
+                                  {`Roast #${roast.id} · ${varietyName}`}
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary">
+                                  {`${roastDate} · ${process} · ${farmName} · Disponible: ${formatGrams(availableRoast)} g`}
+                                </Typography>
+                              </Box>
+                            </MenuItem>
+                          );
+                        })}
+                      </TextField>
+                      <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+                        <TextField
+                          select
+                          label="Tamaño bolsa (g)"
+                          value={item.bag_size_g}
+                          onChange={(e) => updateSaleItem(index, { bag_size_g: Number(e.target.value) })}
+                        >
+                          {!BAG_SIZES.includes(item.bag_size_g as (typeof BAG_SIZES)[number]) ? (
+                            <MenuItem value={item.bag_size_g}>{`${item.bag_size_g} g`}</MenuItem>
+                          ) : null}
+                          {BAG_SIZES.map((size) => (
+                            <MenuItem key={size} value={size}>
+                              {`${size} g`}
+                            </MenuItem>
+                          ))}
+                        </TextField>
+                        <TextField
+                          label="Cantidad de bolsas"
+                          type="number"
+                          value={item.bags}
+                          onChange={(e) => updateSaleItem(index, { bags: e.target.value })}
+                          error={Boolean(saleItemErrors[index]?.bags)}
+                          helperText={saleItemErrors[index]?.bags}
+                          inputProps={{ min: 1, step: "1" }}
+                          required
+                        />
+                        <TextField
+                          label="Precio por bolsa"
+                          type="number"
+                          value={item.bag_price}
+                          onChange={(e) => updateSaleItem(index, { bag_price: e.target.value })}
+                          error={Boolean(saleItemErrors[index]?.bag_price)}
+                          helperText={saleItemErrors[index]?.bag_price}
+                          inputProps={{ min: 0, step: "0.01" }}
+                          required
+                        />
+                      </Stack>
+                      {saleItemErrors[index]?.availability ? (
+                        <Typography variant="caption" color="error">
+                          {saleItemErrors[index]?.availability}
+                        </Typography>
+                      ) : null}
+                      {available !== null ? (
+                        <Typography variant="caption" color="text.secondary">
+                          {`Disponible: ${formatGrams(available)} g`}
+                        </Typography>
+                      ) : null}
+                      <TextField
+                        label="Notas"
+                        value={item.notes}
+                        onChange={(e) => updateSaleItem(index, { notes: e.target.value })}
+                        multiline
+                        rows={2}
+                      />
+                    </Stack>
+                  </Box>
+                );
+              })}
+            </Stack>
+            <Button
+              startIcon={<AddRoundedIcon />}
+              variant="outlined"
+              onClick={addSaleItem}
+              sx={{ alignSelf: "flex-start" }}
+            >
+              Agregar tostión
+            </Button>
             <TextField
               label="Notas"
               value={saleForm.notes}

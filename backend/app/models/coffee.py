@@ -1,7 +1,7 @@
 from datetime import date
-from typing import Optional
+from typing import List, Optional
 
-from sqlmodel import Field, SQLModel
+from sqlmodel import Field, Relationship, SQLModel
 
 
 class FarmBase(SQLModel):
@@ -56,7 +56,7 @@ class CoffeeLotBase(SQLModel):
     process: str
     purchase_date: date
     green_weight_g: float
-    price_per_g: float
+    price_per_kg: float
     moisture_level: Optional[float] = None
     notes: Optional[str] = None
 
@@ -79,7 +79,7 @@ class CoffeeLotUpdate(SQLModel):
     process: Optional[str] = None
     purchase_date: Optional[date] = None
     green_weight_g: Optional[float] = None
-    price_per_g: Optional[float] = None
+    price_per_kg: Optional[float] = None
     moisture_level: Optional[float] = None
     notes: Optional[str] = None
 
@@ -139,35 +139,68 @@ class CustomerUpdate(SQLModel):
 
 
 class SaleBase(SQLModel):
-    roast_batch_id: int = Field(foreign_key="roastbatch.id")
     customer_id: Optional[int] = Field(default=None, foreign_key="customer.id")
     sale_date: date
-    quantity_g: float
-    price_per_g: float
     notes: Optional[str] = None
 
 
 class Sale(SaleBase, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     total_price: float = 0.0
+    total_quantity_g: float = 0.0
+    items: List["SaleItem"] = Relationship(
+        back_populates="sale",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
+    )
 
 
 class SaleCreate(SaleBase):
-    pass
+    items: list["SaleItemCreate"]
 
 
 class SaleRead(SaleBase):
     id: int
     total_price: float
+    total_quantity_g: float
+    items: list["SaleItemRead"]
 
 
 class SaleUpdate(SQLModel):
-    roast_batch_id: Optional[int] = None
     customer_id: Optional[int] = None
     sale_date: Optional[date] = None
-    quantity_g: Optional[float] = None
-    price_per_g: Optional[float] = None
     notes: Optional[str] = None
+    items: Optional[list["SaleItemCreate"]] = None
+
+
+class SaleItemBase(SQLModel):
+    roast_batch_id: int = Field(foreign_key="roastbatch.id")
+    bag_size_g: int
+    bags: int = 1
+    bag_price: float
+    notes: Optional[str] = None
+
+
+class SaleItem(SaleItemBase, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    sale_id: int = Field(foreign_key="sale.id")
+    sale: Optional["Sale"] = Relationship(back_populates="items")
+
+
+class SaleItemCreate(SaleItemBase):
+    pass
+
+
+class SaleItemRead(SaleItemBase):
+    id: int
+    sale_id: int
+
+
+Sale.model_rebuild()
+SaleCreate.model_rebuild()
+SaleRead.model_rebuild()
+SaleUpdate.model_rebuild()
+SaleItemCreate.model_rebuild()
+SaleItemRead.model_rebuild()
 
 
 class ExpenseBase(SQLModel):

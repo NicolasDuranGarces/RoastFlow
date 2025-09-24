@@ -1,27 +1,8 @@
-import {
-  Avatar,
-  Box,
-  Card,
-  CardContent,
-  CardHeader,
-  Chip,
-  Divider,
-  Grid,
-  LinearProgress,
-  Slider,
-  Stack,
-  Typography
-} from "@mui/material";
-import MonetizationOnRoundedIcon from "@mui/icons-material/MonetizationOnRounded";
-import LocalFireDepartmentRoundedIcon from "@mui/icons-material/LocalFireDepartmentRounded";
-import Inventory2RoundedIcon from "@mui/icons-material/Inventory2Rounded";
-import SavingsRoundedIcon from "@mui/icons-material/SavingsRounded";
-import PaidRoundedIcon from "@mui/icons-material/PaidRounded";
-import CoffeeRoundedIcon from "@mui/icons-material/CoffeeRounded";
+import { Box, Card, CardContent, CardHeader, Divider, Grid, LinearProgress, Stack, Typography } from "@mui/material";
 import { useEffect, useMemo, useState } from "react";
 
 import { fetchDashboardSummary } from "../services/api";
-import type { DashboardSummary } from "../types";
+import type { DashboardSummary, SaleItem } from "../types";
 
 const formatCurrency = (value: number) =>
   value.toLocaleString("es-CO", { style: "currency", currency: "COP", minimumFractionDigits: 0 });
@@ -29,9 +10,12 @@ const formatCurrency = (value: number) =>
 const formatGrams = (value: number) =>
   `${value.toLocaleString("es-CO", { minimumFractionDigits: 0, maximumFractionDigits: 0 })} g`;
 
+const formatDate = (value: string) =>
+  new Date(value).toLocaleDateString("es-CO", { year: "numeric", month: "short", day: "numeric" });
+
 const DashboardPage = () => {
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
-  const [projectionPercent, setProjectionPercent] = useState(100);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const loadSummary = async () => {
@@ -40,38 +24,33 @@ const DashboardPage = () => {
         setSummary(data as DashboardSummary);
       } catch (error) {
         console.error("Failed to load dashboard summary", error);
+      } finally {
+        setLoading(false);
       }
     };
     void loadSummary();
   }, []);
 
-  const projections = useMemo(() => {
+  const totals = useMemo(() => {
     if (!summary) {
       return {
-        roastedAvailable: 0,
-        averagePrice: 0,
-        fullValue: 0,
-        halfValue: 0
+        totalSales: 0,
+        totalPurchases: 0,
+        totalExpenses: 0,
+        expectedCash: 0,
+        coffeeValue: 0,
       };
     }
     return {
-      roastedAvailable: summary.inventory.roasted_available_g,
-      averagePrice: summary.financials.average_price_per_g,
-      fullValue: summary.financials.projected_full_sale_value,
-      halfValue: summary.financials.projected_half_sale_value
+      totalSales: summary.cash.total_sales,
+      totalPurchases: summary.cash.total_purchases,
+      totalExpenses: summary.cash.total_expenses,
+      expectedCash: summary.cash.expected_cash,
+      coffeeValue: summary.cash.coffee_inventory_value,
     };
   }, [summary]);
 
-  const dynamicProjection = useMemo(() => {
-    if (!summary) {
-      return { grams: 0, value: 0 };
-    }
-    const grams = (summary.inventory.roasted_available_g * projectionPercent) / 100;
-    const value = grams * summary.financials.average_price_per_g;
-    return { grams, value };
-  }, [summary, projectionPercent]);
-
-  if (!summary) {
+  if (loading) {
     return (
       <Card>
         <CardHeader title="Cargando métricas" />
@@ -82,229 +61,81 @@ const DashboardPage = () => {
     );
   }
 
-  const inventory = summary.inventory;
-  const financials = summary.financials;
-  const roastStats = summary.roasts;
-  const profitMargin = financials.total_sales > 0 ? (financials.net_profit / financials.total_sales) * 100 : 0;
-  const expenseRatio = financials.total_sales > 0 ? (financials.total_expenses / financials.total_sales) * 100 : 0;
-  const greenUtilization = roastStats.total_green_purchased > 0
-    ? (roastStats.total_roasted_produced / roastStats.total_green_purchased) * 100
-    : 0;
+  if (!summary) {
+    return (
+      <Card>
+        <CardHeader title="No pudimos cargar la información" />
+        <CardContent>
+          <Typography variant="body2" color="text.secondary">
+            Intenta recargar la página o verifica la conexión con el servidor.
+          </Typography>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const { cash, inventory, recent_purchases, recent_expenses, recent_sales } = summary;
+
+  const saleSummaryLine = (items: SaleItem[]): string => {
+    if (!items.length) {
+      return "Sin detalle";
+    }
+    if (items.length === 1) {
+      const item = items[0];
+      return `${item.bags} bolsa(s) · ${item.bag_size_g}g`; 
+    }
+    const totalBags = items.reduce((sum, item) => sum + item.bags, 0);
+    return `${items.length} tostiones · ${totalBags} bolsas`;
+  };
 
   return (
     <Grid container spacing={3}>
-      <Grid item xs={12}>
-        <Grid container spacing={3}>
-          <Grid item xs={12} md={3}>
-            <Card>
-              <CardContent>
-                <Stack spacing={1}>
-                  <Typography variant="overline">Margen neto</Typography>
-                  <Typography variant="h4">{profitMargin.toFixed(1)}%</Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Utilidad frente a ventas totales
-                  </Typography>
-                </Stack>
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid item xs={12} md={3}>
-            <Card>
-              <CardContent>
-                <Stack spacing={1}>
-                  <Typography variant="overline">Gastos / Ventas</Typography>
-                  <Typography variant="h4">{expenseRatio.toFixed(1)}%</Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Controla el peso de los gastos generales
-                  </Typography>
-                </Stack>
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid item xs={12} md={3}>
-            <Card>
-              <CardContent>
-                <Stack spacing={1}>
-                  <Typography variant="overline">Promedio venta por gramo</Typography>
-                  <Typography variant="h4">{formatCurrency(financials.average_price_per_g)}</Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Basado en las ventas registradas
-                  </Typography>
-                </Stack>
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid item xs={12} md={3}>
-            <Card>
-              <CardContent>
-                <Stack spacing={1}>
-                  <Typography variant="overline">Uso del verde</Typography>
-                  <Typography variant="h4">{greenUtilization.toFixed(1)}%</Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Proporción tostada vs comprada
-                  </Typography>
-                </Stack>
-              </CardContent>
-            </Card>
-          </Grid>
-        </Grid>
-      </Grid>
-      <Grid item xs={12} lg={4}>
+      <Grid item xs={12} md={6} lg={4}>
         <Card>
-          <CardHeader
-            title="Salud financiera"
-            subheader="Ventas, costos y utilidad acumulada"
-            action={<Chip label={`Valor promedio ${formatCurrency(financials.average_price_per_g)}/g`} />}
-          />
+          <CardHeader title="Resumen financiero" subheader="Panorama general del dinero" />
           <CardContent>
-            <Grid container spacing={3}>
-              <Grid item xs={12} md={6}>
-                <Stack direction="row" spacing={2} alignItems="center">
-                  <Avatar sx={{ bgcolor: "primary.main" }}>
-                    <MonetizationOnRoundedIcon />
-                  </Avatar>
-                  <Stack spacing={0.5}>
-                    <Typography variant="overline">Ventas acumuladas</Typography>
-                    <Typography variant="h5">{formatCurrency(financials.total_sales)}</Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      {formatGrams(financials.total_quantity_sold)} vendidos
-                    </Typography>
-                  </Stack>
-                </Stack>
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <Stack direction="row" spacing={2} alignItems="center">
-                  <Avatar sx={{ bgcolor: "secondary.main" }}>
-                    <PaidRoundedIcon />
-                  </Avatar>
-                  <Stack spacing={0.5}>
-                    <Typography variant="overline">Utilidad neta</Typography>
-                    <Typography variant="h5">{formatCurrency(financials.net_profit)}</Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Ventas - (gastos generales + compra de café)
-                    </Typography>
-                  </Stack>
-                </Stack>
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <Stack spacing={1.5}>
-                  <Stack direction="row" spacing={1.5} alignItems="center">
-                    <Avatar sx={{ bgcolor: "grey.800" }}>
-                      <SavingsRoundedIcon />
-                    </Avatar>
-                    <Stack>
-                      <Typography variant="overline">Gasto en café verde</Typography>
-                      <Typography variant="h6">{formatCurrency(financials.purchase_costs)}</Typography>
-                    </Stack>
-                  </Stack>
-                  <Stack direction="row" spacing={1.5} alignItems="center">
-                    <Avatar sx={{ bgcolor: "grey.700" }}>
-                      <Inventory2RoundedIcon />
-                    </Avatar>
-                    <Stack>
-                      <Typography variant="overline">Gastos generales</Typography>
-                      <Typography variant="h6">{formatCurrency(financials.total_expenses)}</Typography>
-                    </Stack>
-                  </Stack>
-                </Stack>
-              </Grid>
-            </Grid>
-          </CardContent>
-        </Card>
-      </Grid>
-
-      <Grid item xs={12} lg={4}>
-        <Card>
-          <CardHeader
-            title="Inventario"
-            subheader="Disponibilidad actual"
-            action={<Chip color="secondary" label="Seguimiento diario" />}
-          />
-          <CardContent>
-            <Stack spacing={2}>
-              <Stack direction="row" spacing={2} alignItems="center">
-                <Avatar sx={{ bgcolor: "primary.main" }}>
-                  <CoffeeRoundedIcon />
-                </Avatar>
-                <Stack>
-                  <Typography variant="overline">Verde disponible</Typography>
-                  <Typography variant="h6">{formatGrams(inventory.green_available_g)}</Typography>
-                </Stack>
+            <Stack spacing={1.5}>
+              <Stack spacing={0.25}>
+                <Typography variant="overline">Ventas acumuladas</Typography>
+                <Typography variant="h5">{formatCurrency(totals.totalSales)}</Typography>
               </Stack>
-              <Stack direction="row" spacing={2} alignItems="center">
-                <Avatar sx={{ bgcolor: "secondary.main" }}>
-                  <LocalFireDepartmentRoundedIcon />
-                </Avatar>
-                <Stack>
-                  <Typography variant="overline">Tostado disponible</Typography>
-                  <Typography variant="h6">{formatGrams(inventory.roasted_available_g)}</Typography>
-                </Stack>
+              <Stack spacing={0.25}>
+                <Typography variant="overline">Compras de café</Typography>
+                <Typography variant="h6">{formatCurrency(totals.totalPurchases)}</Typography>
               </Stack>
-              <Box>
-                <Typography variant="body2" color="text.secondary">
-                  Verde tostado hasta ahora
+              <Stack spacing={0.25}>
+                <Typography variant="overline">Gastos registrados</Typography>
+                <Typography variant="h6">{formatCurrency(totals.totalExpenses)}</Typography>
+              </Stack>
+              <Divider sx={{ my: 1 }} />
+              <Stack spacing={0.25}>
+                <Typography variant="overline">Saldo esperado</Typography>
+                <Typography variant="h4">{formatCurrency(totals.expectedCash)}</Typography>
+              </Stack>
+              <Stack spacing={0.25}>
+                <Typography variant="overline">Valor inventario de café</Typography>
+                <Typography variant="h6">{formatCurrency(totals.coffeeValue)}</Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Verde: {formatCurrency(cash.green_inventory_value)} · Tostado: {formatCurrency(cash.roasted_inventory_value)}
                 </Typography>
-                <LinearProgress
-                  variant="determinate"
-                  value={
-                    roastStats.total_green_purchased > 0
-                      ? Math.min((roastStats.total_roasted_produced / roastStats.total_green_purchased) * 100, 100)
-                      : 0
-                  }
-                  sx={{ mt: 1, borderRadius: 2, height: 8 }}
-                />
-              </Box>
+              </Stack>
             </Stack>
           </CardContent>
         </Card>
       </Grid>
 
-      <Grid item xs={12} lg={4}>
+      <Grid item xs={12} md={6} lg={4}>
         <Card>
-          <CardHeader title="Proyección de inventario" subheader="Escenarios sobre el tostado disponible" />
+          <CardHeader title="Inventario" subheader="Existencias actuales" />
           <CardContent>
             <Stack spacing={2}>
-              <Box>
-                <Stack direction="row" spacing={1} alignItems="center" mb={1}>
-                  {[25, 50, 75, 100].map((preset) => (
-                    <Chip
-                      key={preset}
-                      label={`${preset}%`}
-                      onClick={() => setProjectionPercent(preset)}
-                      variant={projectionPercent === preset ? "filled" : "outlined"}
-                    />
-                  ))}
-                </Stack>
-                <Slider
-                  value={projectionPercent}
-                  onChange={(_, value) => setProjectionPercent(value as number)}
-                  min={0}
-                  max={100}
-                  step={5}
-                  valueLabelDisplay="auto"
-                  sx={{ mt: 1 }}
-                />
-              </Box>
-              <Stack spacing={0.5}>
-                <Typography variant="overline">Inventario tostado disponible</Typography>
-                <Typography variant="h5">{formatGrams(projections.roastedAvailable)}</Typography>
+              <Stack spacing={0.25}>
+                <Typography variant="overline">Café verde disponible</Typography>
+                <Typography variant="h5">{formatGrams(inventory.green_available_g)}</Typography>
               </Stack>
-              <Stack spacing={0.5}>
-                <Typography variant="overline">Proyección {projectionPercent}%</Typography>
-                <Typography variant="h4">{formatCurrency(dynamicProjection.value)}</Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Equivale a {formatGrams(dynamicProjection.grams)} vendidos al precio promedio
-                </Typography>
-              </Stack>
-              <Divider />
-              <Stack spacing={0.5}>
-                <Typography variant="overline">Escenarios rápidos</Typography>
-                <Typography variant="body2">
-                  Vender todo: <strong>{formatCurrency(projections.fullValue)}</strong>
-                </Typography>
-                <Typography variant="body2">
-                  Vender 50%: <strong>{formatCurrency(projections.halfValue)}</strong>
-                </Typography>
+              <Stack spacing={0.25}>
+                <Typography variant="overline">Café tostado disponible</Typography>
+                <Typography variant="h5">{formatGrams(inventory.roasted_available_g)}</Typography>
               </Stack>
             </Stack>
           </CardContent>
@@ -313,71 +144,94 @@ const DashboardPage = () => {
 
       <Grid item xs={12} lg={4}>
         <Card>
-          <CardHeader title="Insights operativos" subheader="Indicadores derivados de las ventas" />
+          <CardHeader title="Indicadores rápidos" />
           <CardContent>
-            <Grid container spacing={2}>
-              <Grid item xs={12} sm={6}>
-                <Stack spacing={0.5}>
-                  <Typography variant="overline">Gramos vendidos</Typography>
-                  <Typography variant="h5">{formatGrams(financials.total_quantity_sold)}</Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    Total acumulado de café tostado comercializado
-                  </Typography>
-                </Stack>
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <Stack spacing={0.5}>
-                  <Typography variant="overline">Ingreso promedio</Typography>
-                  <Typography variant="h5">{formatCurrency(financials.average_price_per_g)}</Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    Precio medio por gramo vendido
-                  </Typography>
-                </Stack>
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <Stack spacing={0.5}>
-                  <Typography variant="overline">Proyección 100%</Typography>
-                  <Typography variant="subtitle1">{formatCurrency(projections.fullValue)}</Typography>
-                </Stack>
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <Stack spacing={0.5}>
-                  <Typography variant="overline">Inventario proyectado</Typography>
-                  <Typography variant="subtitle1">{formatGrams(projections.roastedAvailable)}</Typography>
-                </Stack>
-              </Grid>
-            </Grid>
+            <Stack spacing={1.5}>
+              <Stack spacing={0.25}>
+                <Typography variant="overline">Ingresos netos (Ventas - Gastos)</Typography>
+                <Typography variant="h6">{formatCurrency(cash.total_sales - cash.total_expenses)}</Typography>
+              </Stack>
+              <Stack spacing={0.25}>
+                <Typography variant="overline">Inversión total en café</Typography>
+                <Typography variant="h6">{formatCurrency(cash.total_purchases)}</Typography>
+              </Stack>
+            </Stack>
           </CardContent>
         </Card>
       </Grid>
 
-      <Grid item xs={12}>
+      <Grid item xs={12} md={6} lg={4}>
         <Card>
-          <CardHeader title="Producción" subheader="Histórico acumulado" />
+          <CardHeader title="Últimas compras" subheader={`Mostrando ${recent_purchases.length} registros`} />
           <CardContent>
-            <Grid container spacing={3}>
-              <Grid item xs={12} md={4}>
-                <Stack>
-                  <Typography variant="overline">Verde comprado</Typography>
-                  <Typography variant="h5">{formatGrams(roastStats.total_green_purchased)}</Typography>
-                </Stack>
-              </Grid>
-              <Grid item xs={12} md={4}>
-                <Stack>
-                  <Typography variant="overline">Tostado producido</Typography>
-                  <Typography variant="h5">{formatGrams(roastStats.total_roasted_produced)}</Typography>
-                </Stack>
-              </Grid>
-              <Grid item xs={12} md={4}>
-                <Stack>
-                  <Typography variant="overline">Tostado vendido</Typography>
-                  <Typography variant="h5">{formatGrams(roastStats.total_roasted_sold)}</Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Diferencia inventario: {formatGrams(roastStats.total_roasted_produced - roastStats.total_roasted_sold)}
-                  </Typography>
-                </Stack>
-              </Grid>
-            </Grid>
+            <Stack spacing={1.5}>
+              {recent_purchases.length === 0 ? (
+                <Typography variant="body2" color="text.secondary">
+                  Aún no hay compras registradas.
+                </Typography>
+              ) : (
+                recent_purchases.map((purchase) => (
+                  <Box key={purchase.id}>
+                    <Typography variant="subtitle2">{`Lote #${purchase.id} · ${purchase.process}`}</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {`${formatDate(purchase.purchase_date)} · ${formatGrams(purchase.green_weight_g)} · ${formatCurrency(
+                        purchase.price_per_kg
+                      )}/kg`}
+                    </Typography>
+                  </Box>
+                ))
+              )}
+            </Stack>
+          </CardContent>
+        </Card>
+      </Grid>
+
+      <Grid item xs={12} md={6} lg={4}>
+        <Card>
+          <CardHeader title="Últimas ventas" subheader={`Mostrando ${recent_sales.length} registros`} />
+          <CardContent>
+            <Stack spacing={1.5}>
+              {recent_sales.length === 0 ? (
+                <Typography variant="body2" color="text.secondary">
+                  Aún no hay ventas registradas.
+                </Typography>
+              ) : (
+                recent_sales.map((sale) => (
+                  <Box key={sale.id}>
+                    <Typography variant="subtitle2">{`Venta #${sale.id} · ${formatCurrency(sale.total_price)}`}</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {`${formatDate(sale.sale_date)} · ${formatGrams(sale.total_quantity_g)} · ${saleSummaryLine(
+                        sale.items ?? []
+                      )}`}
+                    </Typography>
+                  </Box>
+                ))
+              )}
+            </Stack>
+          </CardContent>
+        </Card>
+      </Grid>
+
+      <Grid item xs={12} lg={4}>
+        <Card>
+          <CardHeader title="Últimos gastos" subheader={`Mostrando ${recent_expenses.length} registros`} />
+          <CardContent>
+            <Stack spacing={1.5}>
+              {recent_expenses.length === 0 ? (
+                <Typography variant="body2" color="text.secondary">
+                  Aún no hay gastos registrados.
+                </Typography>
+              ) : (
+                recent_expenses.map((expense) => (
+                  <Box key={expense.id}>
+                    <Typography variant="subtitle2">{`${expense.category}`}</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {`${formatDate(expense.expense_date)} · ${formatCurrency(expense.amount)}`}
+                    </Typography>
+                  </Box>
+                ))
+              )}
+            </Stack>
           </CardContent>
         </Card>
       </Grid>
