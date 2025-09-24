@@ -68,7 +68,6 @@ type SaleItemFormError = {
   roast?: string;
   bags?: string;
   bag_price?: string;
-  availability?: string;
 };
 
 const createEmptySaleItem = (): SaleItemForm => ({
@@ -427,10 +426,6 @@ const currentSaleTotal = useMemo(() => {
         currentErrors.bag_price = "Ingresa un precio válido";
       }
 
-      if (!BAG_SIZES.includes(item.bag_size_g as (typeof BAG_SIZES)[number])) {
-        currentErrors.availability = "Selecciona un tamaño válido";
-      }
-
       if (Object.keys(currentErrors).length === 0 && !Number.isNaN(roastId)) {
         const grams = item.bag_size_g * Number(item.bags);
         totalsByRoast.set(roastId, (totalsByRoast.get(roastId) ?? 0) + grams);
@@ -450,7 +445,7 @@ const currentSaleTotal = useMemo(() => {
           if (Number(item.roast_batch_id) === roastId) {
             itemErrors[index] = {
               ...itemErrors[index],
-              availability: `Solo hay ${formatGrams(available)} g disponibles`
+              bags: `Solo hay ${formatGrams(available)} g disponibles`
             };
           }
         });
@@ -1014,11 +1009,6 @@ const currentSaleTotal = useMemo(() => {
                           required
                         />
                       </Stack>
-                      {saleItemErrors[index]?.availability ? (
-                        <Typography variant="caption" color="error">
-                          {saleItemErrors[index]?.availability}
-                        </Typography>
-                      ) : null}
                       {available !== null ? (
                         <Typography variant="caption" color="text.secondary">
                           {`Disponible: ${formatGrams(available)} g`}
