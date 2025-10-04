@@ -2,6 +2,7 @@ import {
   Avatar,
   Box,
   Button,
+  Collapse,
   Divider,
   Drawer,
   List,
@@ -23,25 +24,58 @@ import ManageAccountsRoundedIcon from "@mui/icons-material/ManageAccountsRounded
 import LogoutRoundedIcon from "@mui/icons-material/LogoutRounded";
 import AssignmentLateRoundedIcon from "@mui/icons-material/AssignmentLateRounded";
 import LocalOfferRoundedIcon from "@mui/icons-material/LocalOfferRounded";
+import CoffeeMakerRoundedIcon from "@mui/icons-material/CoffeeMakerRounded";
+import ExpandLessRoundedIcon from "@mui/icons-material/ExpandLessRounded";
+import ExpandMoreRoundedIcon from "@mui/icons-material/ExpandMoreRounded";
+import { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 
 import { useAuth } from "../hooks/useAuth";
 
 const drawerWidth = 260;
 
-const navItems = [
-  { label: "Dashboard", to: "/dashboard", icon: <DashboardRoundedIcon /> },
-  { label: "Fincas", to: "/farms", icon: <AgricultureRoundedIcon /> },
-  { label: "Variedades", to: "/varieties", icon: <SpaRoundedIcon /> },
-  { label: "Lotes", to: "/lots", icon: <Inventory2RoundedIcon /> },
-  { label: "Tostiones", to: "/roasts", icon: <LocalFireDepartmentRoundedIcon /> },
-  { label: "Ventas", to: "/sales", icon: <ShoppingCartRoundedIcon /> },
-  { label: "Deudas", to: "/debts", icon: <AssignmentLateRoundedIcon /> },
-  { label: "Clientes", to: "/customers", icon: <GroupsRoundedIcon /> },
-  { label: "Referencias de precio", to: "/price-references", icon: <LocalOfferRoundedIcon /> },
-  { label: "Usuarios", to: "/users", icon: <ManageAccountsRoundedIcon />, adminOnly: true },
-  { label: "Gastos", to: "/expenses", icon: <AccountBalanceWalletRoundedIcon /> }
+type NavItem = {
+  label: string;
+  to: string;
+  icon: JSX.Element;
+  adminOnly?: boolean;
+};
+
+const navSections: Array<{ title: string; items: NavItem[] }> = [
+  {
+    title: "Resumen",
+    items: [{ label: "Dashboard", to: "/dashboard", icon: <DashboardRoundedIcon /> }]
+  },
+  {
+    title: "Producción",
+    items: [
+      { label: "Fincas", to: "/farms", icon: <AgricultureRoundedIcon /> },
+      { label: "Variedades", to: "/varieties", icon: <SpaRoundedIcon /> },
+      { label: "Lotes", to: "/lots", icon: <Inventory2RoundedIcon /> },
+      { label: "Tostiones", to: "/roasts", icon: <LocalFireDepartmentRoundedIcon /> },
+      { label: "Inventario tostado", to: "/inventory", icon: <CoffeeMakerRoundedIcon /> }
+    ]
+  },
+  {
+    title: "Comercial",
+    items: [
+      { label: "Ventas", to: "/sales", icon: <ShoppingCartRoundedIcon /> },
+      { label: "Deudas", to: "/debts", icon: <AssignmentLateRoundedIcon /> },
+      { label: "Clientes", to: "/customers", icon: <GroupsRoundedIcon /> },
+      { label: "Referencias de precio", to: "/price-references", icon: <LocalOfferRoundedIcon /> }
+    ]
+  },
+  {
+    title: "Finanzas",
+    items: [{ label: "Gastos", to: "/expenses", icon: <AccountBalanceWalletRoundedIcon /> }]
+  },
+  {
+    title: "Administración",
+    items: [{ label: "Usuarios", to: "/users", icon: <ManageAccountsRoundedIcon />, adminOnly: true }]
+  }
 ];
+
+const flatNavItems = navSections.flatMap((section) => section.items);
 
 const sectionDescriptions: Record<string, string> = {
   Dashboard: "Resumen ejecutivo del negocio",
@@ -49,6 +83,7 @@ const sectionDescriptions: Record<string, string> = {
   Variedades: "Control de variedades y procesos",
   Lotes: "Compras de café verde y su trazabilidad",
   Tostiones: "Historial y registro de tostiones",
+  "Inventario tostado": "Control en tiempo real del café tostado disponible",
   Ventas: "Seguimiento comercial y facturación",
   Deudas: "Control de cuentas por cobrar",
   Clientes: "Directorio y relaciones comerciales",
@@ -61,9 +96,33 @@ const MainLayout = () => {
   const location = useLocation();
   const { logout, user } = useAuth();
 
-  const currentNav = navItems.find((item) =>
+  const currentNav = flatNavItems.find((item) =>
     item.to === "/" ? location.pathname === "/" : location.pathname.startsWith(item.to)
   );
+
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>(() => {
+    const initial = Object.fromEntries(navSections.map((section) => [section.title, true]));
+    const activeSection = navSections.find((section) =>
+      section.items.some((item) => location.pathname.startsWith(item.to))
+    );
+    if (activeSection) {
+      initial[activeSection.title] = true;
+    }
+    return initial;
+  });
+
+  const handleToggleSection = (title: string) => {
+    setOpenSections((prev) => ({ ...prev, [title]: !prev[title] }));
+  };
+
+  useEffect(() => {
+    const activeSection = navSections.find((section) =>
+      section.items.some((item) => location.pathname.startsWith(item.to))
+    );
+    if (activeSection) {
+      setOpenSections((prev) => ({ ...prev, [activeSection.title]: true }));
+    }
+  }, [location.pathname]);
 
   return (
     <Box sx={{ display: "flex", minHeight: "100vh", bgcolor: "background.default" }}>
@@ -97,43 +156,81 @@ const MainLayout = () => {
           </Typography>
         </Stack>
 
-        <List sx={{ flexGrow: 1, display: "flex", flexDirection: "column", py: 0 }}>
-          {navItems
-            .filter((item) => !item.adminOnly || user?.is_superuser)
-            .map((item) => {
-              const isActive = location.pathname.startsWith(item.to);
-              return (
+        <List sx={{ flexGrow: 1, display: "flex", flexDirection: "column", py: 0, gap: 1.5 }}>
+          {navSections.map((section) => {
+            const visibleItems = section.items.filter((item) => !item.adminOnly || user?.is_superuser);
+            if (visibleItems.length === 0) {
+              return null;
+            }
+            return (
+              <Box key={section.title}>
                 <ListItemButton
-                  key={item.to}
-                  component={NavLink}
-                  to={item.to}
+                  onClick={() => handleToggleSection(section.title)}
                   sx={{
                     px: 2,
-                    py: 1.3,
-                    gap: 1.5,
+                    py: 1,
                     borderRadius: 0,
                     mb: 0.25,
-                    backgroundColor: isActive ? "rgba(249,250,251,0.14)" : "transparent",
-                    color: isActive ? "secondary.main" : "rgba(243,244,246,0.85)",
-                    transition: "all 0.2s ease",
+                    color: "rgba(243,244,246,0.8)",
                     '&:hover': {
-                      backgroundColor: "rgba(249,250,251,0.18)",
+                      backgroundColor: "rgba(249,250,251,0.14)",
                       color: "secondary.main"
                     }
                   }}
                 >
-                  <ListItemIcon sx={{ minWidth: 0, mr: 2, color: "inherit" }}>{item.icon}</ListItemIcon>
                   <ListItemText
-                    primary={item.label}
+                    primary={section.title}
                     primaryTypographyProps={{
-                      fontWeight: isActive ? 700 : 500,
-                      variant: "body1",
-                      color: "inherit"
+                      variant: "overline",
+                      letterSpacing: 1,
+                      fontWeight: 700
                     }}
                   />
+                  {openSections[section.title] ? (
+                    <ExpandLessRoundedIcon fontSize="small" />
+                  ) : (
+                    <ExpandMoreRoundedIcon fontSize="small" />
+                  )}
                 </ListItemButton>
-              );
-            })}
+                <Collapse in={openSections[section.title]} timeout="auto" unmountOnExit>
+                  {visibleItems.map((item) => {
+                    const isActive = location.pathname.startsWith(item.to);
+                    return (
+                      <ListItemButton
+                        key={item.to}
+                        component={NavLink}
+                        to={item.to}
+                        sx={{
+                          px: 3,
+                          py: 1.1,
+                          gap: 1.5,
+                          borderRadius: 0,
+                          mb: 0.25,
+                          backgroundColor: isActive ? "rgba(249,250,251,0.14)" : "transparent",
+                          color: isActive ? "secondary.main" : "rgba(243,244,246,0.85)",
+                          transition: "all 0.2s ease",
+                          '&:hover': {
+                            backgroundColor: "rgba(249,250,251,0.18)",
+                            color: "secondary.main"
+                          }
+                        }}
+                      >
+                        <ListItemIcon sx={{ minWidth: 0, mr: 2, color: "inherit" }}>{item.icon}</ListItemIcon>
+                        <ListItemText
+                          primary={item.label}
+                          primaryTypographyProps={{
+                            fontWeight: isActive ? 700 : 500,
+                            variant: "body1",
+                            color: "inherit"
+                          }}
+                        />
+                      </ListItemButton>
+                    );
+                  })}
+                </Collapse>
+              </Box>
+            );
+          })}
         </List>
 
         <Divider sx={{ borderColor: "rgba(255,255,255,0.12)", my: 2 }} />

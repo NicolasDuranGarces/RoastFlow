@@ -6,6 +6,7 @@ from . import (
     dashboard,
     expenses,
     farms,
+    inventory,
     lots,
     price_references,
     roasts,
@@ -20,6 +21,7 @@ api_router.include_router(farms.router)
 api_router.include_router(varieties.router)
 api_router.include_router(lots.router)
 api_router.include_router(roasts.router)
+api_router.include_router(inventory.router)
 api_router.include_router(customers.router)
 api_router.include_router(price_references.router)
 api_router.include_router(sales.router)

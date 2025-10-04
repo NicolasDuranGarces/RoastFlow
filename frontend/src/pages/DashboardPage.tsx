@@ -91,13 +91,16 @@ const DashboardPage = () => {
     return `${items.length} tostiones · ${totalBags} bolsas`;
   };
 
+  const cardBaseStyles = { height: "100%", display: "flex", flexDirection: "column" } as const;
+  const cardContentStyles = { display: "flex", flexDirection: "column", flexGrow: 1, gap: 16 } as const;
+
   return (
     <Grid container spacing={3}>
       <Grid item xs={12} md={6} lg={4}>
-        <Card>
+        <Card sx={cardBaseStyles}>
           <CardHeader title="Resumen financiero" subheader="Panorama general del dinero" />
-          <CardContent>
-            <Stack spacing={1.5}>
+          <CardContent sx={cardContentStyles}>
+            <Stack spacing={1.5} sx={{ flexGrow: 1 }}>
               <Stack spacing={0.25}>
                 <Typography variant="overline">Ventas acumuladas</Typography>
                 <Typography variant="h5">{formatCurrency(totals.totalSales)}</Typography>
@@ -128,10 +131,10 @@ const DashboardPage = () => {
       </Grid>
 
       <Grid item xs={12} md={6} lg={4}>
-        <Card>
+        <Card sx={cardBaseStyles}>
           <CardHeader title="Inventario" subheader="Existencias actuales" />
-          <CardContent>
-            <Stack spacing={2}>
+          <CardContent sx={cardContentStyles}>
+            <Stack spacing={2} sx={{ flexGrow: 1 }}>
               <Stack spacing={0.25}>
                 <Typography variant="overline">Café verde disponible</Typography>
                 <Typography variant="h5">{formatGrams(inventory.green_available_g)}</Typography>
@@ -145,10 +148,10 @@ const DashboardPage = () => {
         </Card>
       </Grid>
 
-      <Grid item xs={12} lg={4}>
-        <Card>
+      <Grid item xs={12} md={6} lg={4}>
+        <Card sx={cardBaseStyles}>
           <CardHeader title="Indicadores rápidos" />
-          <CardContent>
+          <CardContent sx={{ ...cardContentStyles, justifyContent: "space-between" }}>
             <Stack spacing={1.5}>
               <Stack spacing={0.25}>
                 <Typography variant="overline">Ingresos netos (Ventas - Gastos)</Typography>
@@ -167,24 +170,24 @@ const DashboardPage = () => {
                   Clientes con saldo por cobrar
                 </Typography>
               </Stack>
-              <Button
-                variant="outlined"
-                size="small"
-                onClick={() => navigate("/debts")}
-                sx={{ alignSelf: "flex-start" }}
-              >
-                Ver deudas
-              </Button>
             </Stack>
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={() => navigate("/debts")}
+              sx={{ alignSelf: "flex-start" }}
+            >
+              Ver deudas
+            </Button>
           </CardContent>
         </Card>
       </Grid>
 
       <Grid item xs={12} md={6} lg={4}>
-        <Card>
+        <Card sx={cardBaseStyles}>
           <CardHeader title="Últimas compras" subheader={`Mostrando ${recent_purchases.length} registros`} />
-          <CardContent>
-            <Stack spacing={1.5}>
+          <CardContent sx={cardContentStyles}>
+            <Stack spacing={1.5} sx={{ flexGrow: 1 }}>
               {recent_purchases.length === 0 ? (
                 <Typography variant="body2" color="text.secondary">
                   Aún no hay compras registradas.
@@ -207,10 +210,10 @@ const DashboardPage = () => {
       </Grid>
 
       <Grid item xs={12} md={6} lg={4}>
-        <Card>
+        <Card sx={cardBaseStyles}>
           <CardHeader title="Últimas ventas" subheader={`Mostrando ${recent_sales.length} registros`} />
-          <CardContent>
-            <Stack spacing={1.5}>
+          <CardContent sx={cardContentStyles}>
+            <Stack spacing={1.5} sx={{ flexGrow: 1 }}>
               {recent_sales.length === 0 ? (
                 <Typography variant="body2" color="text.secondary">
                   Aún no hay ventas registradas.
@@ -219,32 +222,32 @@ const DashboardPage = () => {
                 recent_sales.map((sale) => (
                   <Box key={sale.id}>
                     <Typography variant="subtitle2">{`Venta #${sale.id} · ${formatCurrency(sale.total_price)}`}</Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {`${formatDate(sale.sale_date)} · ${formatGrams(sale.total_quantity_g)} · ${saleSummaryLine(
-                      sale.items ?? []
-                    )}`}
-                  </Typography>
-                  <Typography
-                    variant="caption"
-                    color={sale.total_price - sale.amount_paid > 0 ? "error" : "text.secondary"}
-                  >
-                    {sale.total_price - sale.amount_paid > 0
-                      ? `Saldo pendiente: ${formatCurrency(Math.max(sale.total_price - sale.amount_paid, 0))}`
-                      : `Pagado: ${formatCurrency(sale.amount_paid)}`}
-                  </Typography>
-                </Box>
-              ))
-            )}
+                    <Typography variant="body2" color="text.secondary">
+                      {`${formatDate(sale.sale_date)} · ${formatGrams(sale.total_quantity_g)} · ${saleSummaryLine(
+                        sale.items ?? []
+                      )}`}
+                    </Typography>
+                    <Typography
+                      variant="caption"
+                      color={sale.total_price - sale.amount_paid > 0 ? "error" : "text.secondary"}
+                    >
+                      {sale.total_price - sale.amount_paid > 0
+                        ? `Saldo pendiente: ${formatCurrency(Math.max(sale.total_price - sale.amount_paid, 0))}`
+                        : `Pagado: ${formatCurrency(sale.amount_paid)}`}
+                    </Typography>
+                  </Box>
+                ))
+              )}
             </Stack>
           </CardContent>
         </Card>
       </Grid>
 
-      <Grid item xs={12} lg={4}>
-        <Card>
+      <Grid item xs={12} md={6} lg={4}>
+        <Card sx={cardBaseStyles}>
           <CardHeader title="Últimos gastos" subheader={`Mostrando ${recent_expenses.length} registros`} />
-          <CardContent>
-            <Stack spacing={1.5}>
+          <CardContent sx={cardContentStyles}>
+            <Stack spacing={1.5} sx={{ flexGrow: 1 }}>
               {recent_expenses.length === 0 ? (
                 <Typography variant="body2" color="text.secondary">
                   Aún no hay gastos registrados.

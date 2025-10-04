@@ -70,6 +70,16 @@ export const createRoast = (payload: Record<string, unknown>) => api.post("/api/
 export const updateRoast = (id: number, payload: Record<string, unknown>) => api.put(`/api/v1/roasts/${id}`, payload);
 export const deleteRoast = (id: number) => api.delete(`/api/v1/roasts/${id}`);
 
+export const fetchRoastedInventory = () => api.get("/api/v1/inventory/roasted");
+export const fetchInventoryAdjustments = (params?: { roast_id?: number }) =>
+  api.get("/api/v1/inventory/adjustments", { params });
+export const createInventoryAdjustment = (payload: Record<string, unknown>) =>
+  api.post("/api/v1/inventory/adjustments", payload);
+export const updateInventoryAdjustment = (id: number, payload: Record<string, unknown>) =>
+  api.put(`/api/v1/inventory/adjustments/${id}`, payload);
+export const deleteInventoryAdjustment = (id: number) =>
+  api.delete(`/api/v1/inventory/adjustments/${id}`);
+
 export const fetchCustomers = () => api.get("/api/v1/customers/");
 export const createCustomer = (payload: Record<string, unknown>) => api.post("/api/v1/customers/", payload);
 export const updateCustomer = (id: number, payload: Record<string, unknown>) =>

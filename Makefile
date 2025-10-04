@@ -6,6 +6,9 @@ COMPOSE ?= docker compose
 build:
 	$(COMPOSE) build
 
+build-up:
+	$(COMPOSE) build && $(COMPOSE) up -d
+
 up:
 	$(COMPOSE) up -d
 

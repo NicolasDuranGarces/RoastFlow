@@ -36,6 +36,12 @@ from .coffee import (
     VarietyRead,
     VarietyUpdate,
 )
+from .inventory import (
+    RoastInventoryAdjustment,
+    RoastInventoryAdjustmentCreate,
+    RoastInventoryAdjustmentRead,
+    RoastInventoryAdjustmentUpdate,
+)
 
 __all__ = [
     "User",
@@ -77,4 +83,8 @@ __all__ = [
     "ExpenseCreate",
     "ExpenseRead",
     "ExpenseUpdate",
+    "RoastInventoryAdjustment",
+    "RoastInventoryAdjustmentCreate",
+    "RoastInventoryAdjustmentRead",
+    "RoastInventoryAdjustmentUpdate",
 ]

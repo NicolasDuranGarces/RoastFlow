@@ -111,3 +111,29 @@ export interface PriceReference {
   price: number;
   notes?: string | null;
 }
+
+export interface RoastedInventoryItem {
+  roast_id: number;
+  roast_date: string;
+  roast_level?: string | null;
+  lot_id: number;
+  lot_process: string;
+  farm_name: string;
+  variety_name: string;
+  green_input_g: number;
+  roasted_output_g: number;
+  sold_g: number;
+  adjustments_g: number;
+  available_g: number;
+  shrinkage_pct: number;
+  notes?: string | null;
+}
+
+export interface InventoryAdjustment {
+  id: number;
+  roast_batch_id: number;
+  adjustment_g: number;
+  reason?: string | null;
+  adjustment_date: string;
+  created_at: string;
+}
