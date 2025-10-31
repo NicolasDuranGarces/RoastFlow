@@ -17,7 +17,7 @@ Plataforma full-stack para administrar la trazabilidad del café desde el grano 
 ## Arquitectura general
 - `backend/`: servicio REST que expone endpoints bajo `/api/v1`, maneja autenticación y persistencia.
 - `frontend/`: cliente SPA que consume la API y gestiona el flujo operativo.
-- `docker-compose.yml`: orquesta Postgres, backend y frontend para desarrollo local.
+- `docker-compose.yml`: orquesta Postgres, backend, frontend y nginx para desarrollo local.
 
 ## Requisitos previos
 - Docker y Docker Compose (o `docker compose` plugin).
@@ -34,16 +34,16 @@ Plataforma full-stack para administrar la trazabilidad del café desde el grano 
    ```bash
    cp frontend/.env.example frontend/.env
    ```
-   Define `VITE_API_URL` apuntando al host donde corre el backend.
+   Define `VITE_API_URL` como `/api` para reutilizar el mismo dominio que expone el proxy inverso.
 
 ## Puesta en marcha con Docker
 ```bash
 make build   # construye las imágenes
-make up      # levanta Postgres, backend y frontend
+make up      # levanta Postgres, backend, frontend y nginx
 ```
-Una vez iniciados los servicios:
-- API: http://localhost:8000/docs
-- Frontend: http://localhost:5173
+Una vez iniciados los servicios, nginx expone todo en `http://localhost:3999`:
+- Frontend: http://localhost:3999/
+- API (docs): http://localhost:3999/api/docs
 
 Para detener los servicios:
 ```bash

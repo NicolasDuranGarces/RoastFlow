@@ -8,10 +8,10 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: tuestecafe
-    ports:
-      - "3011:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    networks:
+      - internal
 
   backend:
     build:
@@ -29,8 +29,8 @@ services:
       ACCESS_TOKEN_EXPIRE_MINUTES: 1440
       FIRST_SUPERUSER_EMAIL: admin@caturro.cafe
       FIRST_SUPERUSER_PASSWORD: admin123
-    ports:
-      - "3015:8000"
+    networks:
+      - internal
 
   frontend:
     build:
@@ -41,12 +41,32 @@ services:
       - ./frontend:/app
       - /app/node_modules
     environment:
-      VITE_API_URL: http://localhost:3015
+      VITE_API_URL: /api
       CHOKIDAR_USEPOLLING: "true"
     depends_on:
       - backend
+    networks:
+      - internal
+
+  nginx:
+    image: nginx:alpine
+    depends_on:
+      - frontend
+      - backend
     ports:
-      - "3010:5173"
+      - "3999:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    networks:
+      - internal
+      - proxy
 
 volumes:
   postgres_data:
+
+networks:
+  internal:
+    driver: bridge
+    internal: true
+  proxy:
+    driver: bridge
